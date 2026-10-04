@@ -1,6 +1,6 @@
 -- ==========================================
--- AUTO CLAN FARM v2.1 (FIXED)
--- Без Auto Hatch. Орбы в 5-10 раз быстрее.
+-- AUTO CLAN FARM v2.4 (SMART WALK)
+-- Орбы только ближние. Стоит если никого рядом.
 -- ==========================================
 
 local env = getgenv()
@@ -22,33 +22,38 @@ local HW           = loadModule(L.Client.HatchWarCmds)
 local Types        = loadModule(L.Types.HatchWar)
 local UpgradeCmds  = loadModule(L.Client.EventUpgradeCmds)
 local CurrencyCmds = loadModule(L.Client.CurrencyCmds)
-local PumpkinUtil  = loadModule(L.Util.HatchWarPumpkin)
+
+local GUImod = nil
+pcall(function() GUImod = loadModule(L.Client.GUI) end)
 
 -- =====================
 -- CONFIG
 -- =====================
 local CONFIG = {
-    ORB_DELAY    = 0.25,   -- было 0.8, ускорено
-    ORB_BATCH    = 5,      -- 5 орбов за проход
-    ORB_PAUSE    = 0.05,   -- пауза между ТП
-    DROP_DELAY   = 0.4,
-    DROP_BATCH   = 5,
-    UPGRADE_COOL = 3,
-    PUMPKIN_COOL = 2,
-    CLAN_POINTS  = { huge = 100, titanic = 500, gargantuan = 5000 },
+    WALK_SPEED      = 150,
+    ORB_CHECK       = 0.2,
+    ORB_MAX_RADIUS  = 80,      -- ★ не идти дальше 80м за орбом
+    ORB_ARRIVE      = 12,
+    ORB_TIMEOUT     = 8,
+    IDLE_JITTER     = 5,       -- ★ стоим на месте ±5м
+    BOSS_ARRIVE     = 8,
+    BOSS_TIMEOUT    = 20,
+    MACHINE_ARRIVE  = 12,
+    UPGRADE_COOL    = 3,
+    PUMPKIN_COOL    = 2,
+    DROP_DELAY      = 0.4,
+    DROP_BATCH      = 5,
 }
 
 -- =====================
 -- STATE
 -- =====================
 local M = {
-    Alive = true, Version = "2.1-fixed", Started = os.clock(),
+    Alive = true, Version = "2.4-smart", Started = os.clock(),
     AutoOrbs = false, AutoBreak = false, AutoDrops = false,
     AutoBoss = false, AutoProgress = true, AutoUpgrades = false,
     AutoPumpkin = false, AntiAFK = true,
-    Hatches = 0, RareHatches = 0, ClanPoints = 0,
-    FarmHits = 0, Teleports = 0, CircleHits = 0, Clicks = 0,
-    OrbCollected = 0,
+    Teleports = 0, CircleHits = 0, Clicks = 0, OrbCollected = 0,
     PumpkinFed = 0, PumpkinOpened = 0,
     OrbStatus = "Выкл", BreakStatus = "Выкл", BossStatus = "Выкл",
     UpgradeStatus = "Выкл", PumpkinStatus = "Выкл",
@@ -58,6 +63,7 @@ local M = {
     Skipped = setmetatable({}, { __mode = "k" }),
     DropSkipped = setmetatable({}, { __mode = "k" }),
     Owned = {}, Connections = {},
+    CurrentOrb = nil, OrbMoveStart = 0,
 }
 env.AUTO_CLAN_FARM = M
 
@@ -72,6 +78,18 @@ local function root()
     local r = c and c:FindFirstChild("HumanoidRootPart")
     if h and h.Health > 0 and r then return r end
     return nil
+end
+
+local function humanoid()
+    local c = LP.Character
+    return c and c:FindFirstChildOfClass("Humanoid")
+end
+
+local function boostSpeed()
+    local h = humanoid()
+    if h and h.WalkSpeed < CONFIG.WALK_SPEED then
+        h.WalkSpeed = CONFIG.WALK_SPEED
+    end
 end
 
 local function HWInst()
@@ -101,6 +119,26 @@ local function ZoneAt(inst, pos)
     return nil
 end
 
+local function walkTo(pos, arriveDist, timeout, statusSetter)
+    arriveDist = arriveDist or 10
+    timeout = timeout or 10
+    local h = humanoid()
+    if not h then return false end
+    boostSpeed()
+    local deadline = os.clock() + timeout
+    while os.clock() < deadline do
+        if not M.Alive then return false end
+        local r = root()
+        if not r then return false end
+        local d = (pos - r.Position).Magnitude
+        if d < arriveDist then return true end
+        h:MoveTo(pos)
+        if statusSetter then statusSetter(d) end
+        task.wait(0.1)
+    end
+    return false
+end
+
 -- =====================
 -- AUTO PROGRESS
 -- =====================
@@ -115,47 +153,29 @@ local function ProgressStep()
     local best = BestZone()
     if lastInst ~= inst then lastInst = inst; lastZone = best; return end
     if best <= (lastZone or best) then return end
-    local r = root()
-    if not r then return end
     local ground = inst.model:FindFirstChild("ZONE_GROUND")
     local target = ground and ground:FindFirstChild(tostring(best))
     if not target or not target:IsA("BasePart") then return end
-    r.CFrame = target.CFrame * CFrame.new(0, target.Size.Y / 2 + 3, 0)
-    r.AssemblyLinearVelocity = Vector3.zero
-    lastZone = best
-    log("Переход в зону " .. best)
+    local r = root()
+    if r then
+        r.CFrame = target.CFrame * CFrame.new(0, target.Size.Y / 2 + 3, 0)
+        r.AssemblyLinearVelocity = Vector3.zero
+        lastZone = best
+        log("Переход в зону " .. best)
+    end
 end
 
 -- =====================
--- AUTO ORBS (УСКОРЕНО)
+-- AUTO ORBS (SMART)
 -- =====================
-local function OrbStep()
-    if not M.AutoOrbs then M.OrbStatus = "Выкл"; return end
-    if os.clock() < M.NextOrb then return end
-
-    local ok, bank, cap = pcall(function()
-        local b, c = HW.Feature("Orbs").Bank()
-        return b, c
-    end)
-    if not ok then M.NextOrb = os.clock() + 1; return end
-
-    if bank >= cap then
-        M.OrbStatus = "Полный: " .. bank .. "/" .. cap
-        M.NextOrb = os.clock() + 2
-        return
-    end
-
-    M.NextOrb = os.clock() + CONFIG.ORB_DELAY
+local function findNearestOrb()
     local inst, r = HWInst(), root()
-    if not inst or not r then return end
-
+    if not inst or not r then return nil, nil, math.huge end
     local zone = BestZone()
     local debris = workspace:FindFirstChild("__DEBRIS")
     local folder = debris and debris:FindFirstChild("HatchWarOrbs")
-    if not folder then M.OrbStatus = "Нет папки орбов"; return end
-
-    -- Собираем все доступные орбы в текущей зоне
-    local candidates = {}
+    if not folder then return nil, nil, math.huge end
+    local nearest, nearestPos, nearestDist = nil, nil, math.huge
     for _, orb in ipairs(folder:GetChildren()) do
         if orb:IsA("Model") and (M.Skipped[orb] or 0) <= os.clock() then
             local pos = orb:GetPivot().Position
@@ -163,40 +183,78 @@ local function OrbStep()
                 local ground = inst.model.ZONE_GROUND:FindFirstChild(tostring(zone))
                 local floorY = ground and ground.Position.Y + ground.Size.Y / 2
                 if floorY and pos.Y < floorY + 10 and pos.Y > floorY - 2 then
-                    table.insert(candidates, {
-                        orb = orb,
-                        pos = pos,
-                        dist = (pos - r.Position).Magnitude,
-                    })
+                    local d = (pos - r.Position).Magnitude
+                    -- ★ ограничение радиуса
+                    if d < nearestDist and d <= CONFIG.ORB_MAX_RADIUS then
+                        nearest, nearestPos, nearestDist = orb, pos, d
+                    end
                 end
             end
         end
     end
+    return nearest, nearestPos, nearestDist
+end
 
-    if #candidates == 0 then
-        M.OrbStatus = "Нет орбов · " .. bank .. "/" .. cap
+local function OrbStep()
+    if not M.AutoOrbs then
+        M.OrbStatus = "Выкл"
+        M.CurrentOrb = nil
         return
     end
+    local r = root()
+    local h = humanoid()
+    if not r or not h then return end
+    boostSpeed()
 
-    table.sort(candidates, function(a, b) return a.dist < b.dist end)
-
-    -- Собираем пачку ближайших за один проход
-    local collected = 0
-    local total = math.min(CONFIG.ORB_BATCH, #candidates)
-    for i = 1, total do
-        if not M.Alive or not M.AutoOrbs then break end
-        local c = candidates[i]
-        M.Skipped[c.orb] = os.clock() + 8
-        r.CFrame = CFrame.new(c.pos + Vector3.new(0, 1, 0)) * r.CFrame.Rotation
-        r.AssemblyLinearVelocity = Vector3.zero
-        M.Teleports = M.Teleports + 1
-        collected = collected + 1
-        task.wait(CONFIG.ORB_PAUSE)
+    -- Есть цель — идём
+    if M.CurrentOrb then
+        local orb = M.CurrentOrb
+        if not orb.Parent then
+            M.OrbCollected = M.OrbCollected + 1
+            M.CurrentOrb = nil
+        else
+            local pos = orb:GetPivot().Position
+            local d = (pos - r.Position).Magnitude
+            if d < CONFIG.ORB_ARRIVE then
+                M.Skipped[orb] = os.clock() + 5
+                M.OrbCollected = M.OrbCollected + 1
+                M.CurrentOrb = nil
+            elseif os.clock() - M.OrbMoveStart > CONFIG.ORB_TIMEOUT then
+                M.Skipped[orb] = os.clock() + 15
+                M.CurrentOrb = nil
+            else
+                h:MoveTo(pos)
+                M.OrbStatus = string.format("Идём · %.1fm", d)
+                return
+            end
+        end
     end
 
-    M.OrbCollected = M.OrbCollected + collected
-    M.OrbStatus = string.format("+%d · %d/%d · всего %d",
-        collected, bank, cap, M.OrbCollected)
+    if os.clock() < M.NextOrb then return end
+    M.NextOrb = os.clock() + CONFIG.ORB_CHECK
+
+    -- Проверка банка
+    local okBank, bank, cap = pcall(function()
+        local b, c = HW.Feature("Orbs").Bank()
+        return b, c
+    end)
+    if okBank and bank and cap and bank >= cap then
+        M.OrbStatus = "Банк полон: " .. bank .. "/" .. cap
+    end
+
+    local orb, pos, dist = findNearestOrb()
+    if not orb then
+        -- ★ Нет орбов в радиусе — стоим на месте ±5м, магнит подтянет
+        M.OrbStatus = "Ожидание · магнит"
+        local jitter = CONFIG.IDLE_JITTER
+        h:MoveTo(r.Position + Vector3.new(
+            math.random(-jitter, jitter), 0, math.random(-jitter, jitter)))
+        return
+    end
+    M.CurrentOrb = orb
+    M.OrbMoveStart = os.clock()
+    h:MoveTo(pos)
+    M.OrbStatus = string.format("Цель · %.1fm", dist)
 end
 
 -- =====================
@@ -208,11 +266,11 @@ local function DropStep()
     if not M.AutoDrops or DropBusy then return end
     if os.clock() < M.NextDrop then return end
     M.NextDrop = os.clock() + 1
-
     DropBusy = true
     task.spawn(function()
         local r = root()
-        if not r then DropBusy = false; return end
+        local h = humanoid()
+        if not r or not h then DropBusy = false; return end
         local things = workspace:FindFirstChild("__THINGS")
         local folder = things and things:FindFirstChild("Orbs")
         if folder then
@@ -222,11 +280,12 @@ local function DropStep()
                 if (orb:IsA("BasePart") or orb:IsA("Model"))
                    and (M.DropSkipped[orb] or 0) <= os.clock() then
                     local pos = orb:IsA("BasePart") and orb.Position or orb:GetPivot().Position
-                    M.DropSkipped[orb] = os.clock() + 15
-                    r.CFrame = CFrame.new(pos + Vector3.new(0, 1, 0)) * r.CFrame.Rotation
-                    r.AssemblyLinearVelocity = Vector3.zero
-                    collected = collected + 1
-                    task.wait(CONFIG.DROP_DELAY)
+                    local d = (pos - r.Position).Magnitude
+                    if d <= CONFIG.ORB_MAX_RADIUS then
+                        M.DropSkipped[orb] = os.clock() + 15
+                        walkTo(pos, 8, 5)
+                        collected = collected + 1
+                    end
                 end
             end
         end
@@ -235,7 +294,7 @@ local function DropStep()
 end
 
 -- =====================
--- AUTO BOSS
+-- AUTO BOSS (FIXED)
 -- =====================
 local BossPending, BossNext, WasFighting = false, 0, false
 
@@ -257,16 +316,11 @@ local function BossStep()
         local zone = BestZone()
         local req, luck = boss.Recommended(zone)
         local coins = CurrencyCmds.Get(Types.COIN)
-
-        if coins < req then
-            M.BossStatus = "Монет: " .. coins .. "/" .. req
-            return
-        end
+        if coins < req then M.BossStatus = "Монет: " .. coins .. "/" .. req; return end
         if boss.PlayerLuck(zone) < luck then
             M.BossStatus = "Удачи: " .. math.floor(boss.PlayerLuck(zone)) .. "/" .. luck
             return
         end
-
         local r = root()
         if not r then return end
         local interact = inst.model:FindFirstChild("INTERACT")
@@ -275,42 +329,55 @@ local function BossStep()
         if not target then M.BossStatus = "Босс не найден"; return end
 
         BossPending = true
-        M.BossStatus = "Запуск · зона " .. zone
+        M.BossStatus = "Идём к боссу…"
         task.spawn(function()
-            local ok = pcall(function()
-                r.CFrame = target:GetPivot() * CFrame.new(0, 3, 6)
-                task.wait(0.6)
-                return boss.RequestFight(zone)
-            end)
+            local arrived = walkTo(target:GetPivot().Position, CONFIG.BOSS_ARRIVE,
+                CONFIG.BOSS_TIMEOUT,
+                function(d) M.BossStatus = string.format("Идём · %.1fm", d) end)
+            if not arrived then
+                M.BossStatus = "Не дошли"
+                BossPending = false
+                BossNext = os.clock() + 5
+                return
+            end
+            task.wait(0.6)
+            local ok = pcall(function() return boss.RequestFight(zone) end)
             BossPending = false
             BossNext = os.clock() + (ok and 8 or 20)
-            M.BossStatus = ok and "Запущен" or "Отказ"
+            M.BossStatus = ok and "Бой запущен" or "Отказ · повтор"
         end)
         return
     end
 
     WasFighting = true
-    local gui = HW.Feature("GUI").HatchWarBoss()
-    if not gui or not gui.Enabled then return end
-    local circle = gui:FindFirstChild("LiveCircle")
-    if circle and circle:IsA("GuiButton") and circle.Visible and circle.Active then
-        for _, conn in ipairs(getconnections(circle.Activated)) do
-            if conn.Enabled and type(conn.Function) == "function" then
-                local ok = pcall(conn.Function)
-                if ok then
-                    M.CircleHits = M.CircleHits + 1
-                    M.BossStatus = "Цели: " .. M.CircleHits
-                    return
+    local gui = nil
+    pcall(function()
+        if GUImod and type(GUImod.HatchWarBoss) == "function" then
+            gui = GUImod.HatchWarBoss()
+        end
+    end)
+    if gui and gui.Enabled then
+        local circle = gui:FindFirstChild("LiveCircle")
+        if circle and circle:IsA("GuiButton") and circle.Visible and circle.Active then
+            for _, conn in ipairs(getconnections(circle.Activated)) do
+                if conn.Enabled and type(conn.Function) == "function" then
+                    local ok = pcall(conn.Function)
+                    if ok then
+                        M.CircleHits = M.CircleHits + 1
+                        M.BossStatus = "Цели: " .. M.CircleHits
+                        return
+                    end
                 end
             end
         end
     end
     pcall(function() HW.Feature("Boss").Input.PressCentre() end)
     M.Clicks = M.Clicks + 1
+    M.BossStatus = "Клики: " .. M.Clicks .. " · цели: " .. M.CircleHits
 end
 
 -- =====================
--- AUTO BREAK (Candy Farm)
+-- AUTO BREAK
 -- =====================
 local function ReleasePets()
     for pet, rec in pairs(M.Owned) do
@@ -367,10 +434,19 @@ end
 -- =====================
 -- AUTO UPGRADES
 -- =====================
+local function findMachine()
+    local inst = HWInst()
+    if not inst then return nil end
+    local ok, upg = pcall(function() return HW.Feature("Upgrades") end)
+    if not ok or not upg then return nil end
+    local name = upg.MACHINE or "HatchWarUpgradeMachine"
+    return inst.model:FindFirstChild(name, true)
+end
+
 local function UpgradeStep()
     if not M.AutoUpgrades then M.UpgradeStatus = "Выкл"; return end
     if os.clock() < M.NextUpgrade then return end
-    M.NextUpgrade = os.clock() + 2
+    M.NextUpgrade = os.clock() + 1
     local inst = HWInst()
     if not inst then M.UpgradeStatus = "Войди в HW"; return end
     local boss = HW.Feature("Boss")
@@ -382,10 +458,22 @@ local function UpgradeStep()
         if not HW.Feature("Upgrades").IsMax(dir) then selected = dir; break end
     end
     if not selected then M.UpgradeStatus = "Все макс"; return end
-
     if not HW.Feature("Upgrades").CanAfford(selected) then
         M.UpgradeStatus = "Копим: " .. selected.Name
+        M.NextUpgrade = os.clock() + 5
         return
+    end
+
+    local machine = findMachine()
+    if machine then
+        local r = root()
+        if r then
+            local d = (machine.Position - r.Position).Magnitude
+            if d > CONFIG.MACHINE_ARRIVE then
+                walkTo(machine.Position, CONFIG.MACHINE_ARRIVE, 10,
+                    function(dd) M.UpgradeStatus = string.format("Идём к машине · %.0fm", dd) end)
+            end
+        end
     end
 
     local ok, result = pcall(function() return UpgradeCmds.Purchase(selected) end)
@@ -394,7 +482,7 @@ local function UpgradeStep()
         M.NextUpgrade = os.clock() + CONFIG.UPGRADE_COOL
     else
         M.UpgradeStatus = "Отказ: " .. tostring(result)
-        M.NextUpgrade = os.clock() + 15
+        M.NextUpgrade = os.clock() + 10
     end
 end
 
@@ -442,7 +530,7 @@ end
 if M.AntiAFK then table.insert(M.Connections, LP.Idled:Connect(AFKPulse)) end
 
 -- =====================
--- UI (Rayfield)
+-- UI
 -- =====================
 local ok, Rayfield = pcall(function()
     return loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -452,7 +540,7 @@ if not ok or not Rayfield then warn("[ACF] Rayfield не загрузился");
 local Window = Rayfield:CreateWindow({
     Name = "Auto Clan Farm",
     LoadingTitle = "Загрузка…",
-    LoadingSubtitle = "v2.1 · Hatch Wars",
+    LoadingSubtitle = "v2.4 · Smart Walk",
     ConfigurationSaving = { Enabled = true, FolderName = "AutoClanFarm", FileName = "v2" },
     Keybind = "K",
 })
@@ -467,13 +555,10 @@ local Stats = Window:CreateTab("Статистика", 4483362458)
 local StatusCard = Main:CreateParagraph({ Title = "Статус", Content = "…" })
 local StatsCard  = Stats:CreateParagraph({ Title = "Статистика", Content = "…" })
 
--- UI: ГЛАВНАЯ
 Main:CreateToggle({ Name = "Auto Progress", CurrentValue = true, Flag = "AutoProgress",
     Callback = function(v) M.AutoProgress = v end })
-
 Main:CreateToggle({ Name = "Anti-AFK", CurrentValue = true, Flag = "AntiAFK",
     Callback = function(v) M.AntiAFK = v end })
-
 Main:CreateButton({ Name = "Stop All", Callback = function()
     M.AutoOrbs, M.AutoBreak, M.AutoDrops = false, false, false
     M.AutoBoss, M.AutoUpgrades, M.AutoPumpkin = false, false, false
@@ -481,31 +566,29 @@ Main:CreateButton({ Name = "Stop All", Callback = function()
     log("Остановлено")
 end })
 
--- UI: ОРБЫ
-Orbs:CreateToggle({ Name = "Auto Lucky Orbs", CurrentValue = false, Flag = "AutoOrbs",
-    Callback = function(v) M.AutoOrbs = v; M.NextOrb = 0 end })
+Orbs:CreateToggle({ Name = "Auto Lucky Orbs (walk)", CurrentValue = false, Flag = "AutoOrbs",
+    Callback = function(v) M.AutoOrbs = v; M.NextOrb = 0; M.CurrentOrb = nil end })
 Orbs:CreateToggle({ Name = "Auto Drops", CurrentValue = false, Flag = "AutoDrops",
     Callback = function(v) M.AutoDrops = v; M.NextDrop = 0 end })
-Orbs:CreateSlider({ Name = "Orb Delay", Range = {0.15, 3}, Increment = 0.05, Suffix = "с",
-    CurrentValue = CONFIG.ORB_DELAY, Callback = function(v) CONFIG.ORB_DELAY = v end })
-Orbs:CreateSlider({ Name = "Orbs per batch", Range = {1, 15}, Increment = 1,
-    CurrentValue = CONFIG.ORB_BATCH, Callback = function(v) CONFIG.ORB_BATCH = v end })
+Orbs:CreateSlider({ Name = "Walk Speed", Range = {50, 300}, Increment = 10,
+    CurrentValue = CONFIG.WALK_SPEED, Callback = function(v)
+        CONFIG.WALK_SPEED = v
+        local h = humanoid(); if h then h.WalkSpeed = v end
+    end })
+Orbs:CreateSlider({ Name = "Orb Radius", Range = {20, 200}, Increment = 10,
+    CurrentValue = CONFIG.ORB_MAX_RADIUS, Callback = function(v) CONFIG.ORB_MAX_RADIUS = v end })
 
--- UI: ФАРМ
 Farm:CreateToggle({ Name = "Auto Boss", CurrentValue = false, Flag = "AutoBoss",
     Callback = function(v) M.AutoBoss = v; BossNext = 0 end })
 Farm:CreateToggle({ Name = "Auto Break (Candy)", CurrentValue = false, Flag = "AutoBreak",
     Callback = function(v) M.AutoBreak = v; if not v then ReleasePets() end end })
 
--- UI: ТЫКВА
 Pump:CreateToggle({ Name = "Auto Giant Pumpkin", CurrentValue = false, Flag = "AutoPumpkin",
     Callback = function(v) M.AutoPumpkin = v; M.NextPumpkin = 0 end })
 
--- UI: АПГРЕЙДЫ
 Upg:CreateToggle({ Name = "Auto Event Upgrades", CurrentValue = false, Flag = "AutoUpgrades",
     Callback = function(v) M.AutoUpgrades = v; M.NextUpgrade = 0 end })
 
--- UI обновление
 task.spawn(function()
     while M.Alive do
         task.wait(2)
@@ -518,28 +601,25 @@ task.spawn(function()
                 "🔨 Фарм: %s\n" ..
                 "🍬 Тыква: %s\n" ..
                 "⬆️ Апгрейды: %s\n" ..
-                "📊 Телепортов: %d · кликов: %d · целей: %d",
+                "📊 Орбов: %d · целей: %d · кликов: %d",
                 z, M.OrbStatus, M.BossStatus, M.BreakStatus,
                 M.PumpkinStatus, M.UpgradeStatus,
-                M.Teleports, M.Clicks, M.CircleHits) })
-            StatusCard:Set({ Title = "Статус", Content =
-                "AFK: " .. M.AFKStatus })
+                M.OrbCollected, M.CircleHits, M.Clicks) })
+            StatusCard:Set({ Title = "Статус", Content = "AFK: " .. M.AFKStatus })
         end)
     end
 end)
 
--- =====================
--- MAIN LOOP
--- =====================
 table.insert(M.Connections, LP.CharacterAdded:Connect(function()
     ReleasePets()
     M.NextOrb = os.clock() + 3
     M.NextBreak = os.clock() + 3
+    M.CurrentOrb = nil
 end))
 
 task.spawn(function()
     while M.Alive do
-        local ok, err = pcall(function()
+        local ok2, err = pcall(function()
             ProgressStep()
             OrbStep()
             BossStep()
@@ -548,20 +628,17 @@ task.spawn(function()
             UpgradeStep()
             PumpkinStep()
         end)
-        if not ok then
+        if not ok2 then
             warn("[ACF] " .. tostring(err))
             task.wait(2)
         else
-            task.wait(0.15)
+            task.wait(0.1)
         end
     end
 end)
 
 task.spawn(function()
-    while M.Alive do
-        task.wait(120)
-        AFKPulse()
-    end
+    while M.Alive do task.wait(120); AFKPulse() end
 end)
 
 function M.Shutdown()
@@ -574,5 +651,5 @@ function M.Shutdown()
     log("Shutdown")
 end
 
-log("AUTO CLAN FARM v2.1 загружен · " .. LP.Name)
-Rayfield:Notify({ Title = "Auto Clan Farm v2.1", Content = "Готов. Включи тумблеры!", Duration = 6 })
+log("AUTO CLAN FARM v2.4 загружен · " .. LP.Name)
+Rayfield:Notify({ Title = "Auto Clan Farm v2.4", Content = "Smart Walk · орбы до 80м", Duration = 6 })
