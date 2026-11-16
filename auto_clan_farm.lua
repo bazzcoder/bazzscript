@@ -1,5 +1,5 @@
 --[[
-    BAZZ · Pumpkin Patch Tycoon — ZaLupa Style UI (Компактная версия)
+    BAZZ · Pumpkin Patch Tycoon — ZaLupa Style UI (Final Compact Version)
 --]]
 
 local Players = game:GetService("Players")
@@ -104,7 +104,7 @@ end
 loadCfg()
 normalizeProgression()
 
--- ЛОГИКА (без изменений)
+-- ЛОГИКА
 local function char() local c = LP.Character return c and c:FindFirstChild("HumanoidRootPart") end
 local function distTo(pos) local hrp = char() if not hrp or not pos then return math.huge end return (hrp.Position - pos).Magnitude end
 local lastTp, moveKey, moveTarget = 0, nil, nil
@@ -118,12 +118,6 @@ local function goTo(key, target, minDist)
     lastTp, moveKey, moveTarget = now, key, pos return true
 end
 local function coinCount() local ok, v = pcall(Currency.Get, "PumpkinTycoonCoins") return ok and tonumber(v) or 0 end
-local function shortNum(n)
-    n = tonumber(n) or 0
-    local units = { { 1e33, "Dc" }, { 1e30, "No" }, { 1e27, "Oc" }, { 1e24, "Sp" }, { 1e21, "Sx" }, { 1e18, "Qi" }, { 1e15, "Qa" }, { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } }
-    for _, u in ipairs(units) do if n >= u[1] then return string.format("%.2f%s", n / u[1], u[2]) end end
-    return tostring(math.floor(n))
-end
 local function baseId(id) return (tostring(id or ""):gsub("%s*%b()%s*$", "")) end
 local function isPumpkinId(id) return baseId(id):lower():find("pumpkin", 1, true) ~= nil end
 
@@ -571,7 +565,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- GUI (Компактная версия)
+-- GUI (Final)
 -- ============================================================
 local parent = LP:WaitForChild("PlayerGui")
 local old = parent:FindFirstChild("BazzHubUI")
@@ -593,9 +587,8 @@ toggleBtn.BackgroundColor3 = COL_ACCENT toggleBtn.Text = "B" toggleBtn.TextColor
 toggleBtn.Font = Enum.Font.GothamBlack toggleBtn.TextSize = 24 toggleBtn.Parent = sgui
 local tc = Instance.new("UICorner") tc.CornerRadius = UDim.new(1, 0) tc.Parent = toggleBtn
 
--- Уменьшенный размер окна
 local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(520, 350) main.Position = UDim2.fromScale(0.5, 0.5) main.AnchorPoint = Vector2.new(0.5, 0.5)
+main.Size = UDim2.fromOffset(500, 320) main.Position = UDim2.fromScale(0.5, 0.5) main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.BackgroundColor3 = COL_BG main.BorderSizePixel = 0 main.Visible = false main.Parent = sgui
 local mc = Instance.new("UICorner") mc.CornerRadius = UDim.new(0, 8) mc.Parent = main
 
@@ -698,7 +691,7 @@ local function createDropdown(parent, order, label, items, key, callback)
 
     local dropFrame = Instance.new("ScrollingFrame")
     dropFrame.Size = UDim2.fromOffset(160, math.min(#items * 25, 120)) 
-    dropFrame.Position = UDim2.new(1, -170, 0, 30) -- Чуть ниже кнопки
+    dropFrame.Position = UDim2.new(1, -170, 0, 30)
     dropFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
     dropFrame.BorderSizePixel = 0 dropFrame.Visible = false dropFrame.ZIndex = 10 dropFrame.Parent = p
     local dfc = Instance.new("UICorner") dfc.CornerRadius = UDim.new(0, 4) dfc.Parent = dropFrame
@@ -715,7 +708,18 @@ local function createDropdown(parent, order, label, items, key, callback)
             if callback then callback(item) end saveCfg()
         end)
     end
-    btn.MouseButton1Click:Connect(function() dropFrame.Visible = not dropFrame.Visible if dropFrame.Visible then dropFrame.ZIndex = 100 end end)
+    btn.MouseButton1Click:Connect(function()
+        dropFrame.Visible = not dropFrame.Visible
+        if dropFrame.Visible then
+            dropFrame.ZIndex = 100
+            -- Если список выходит за нижний край окна, открываем его вверх
+            if p.AbsolutePosition.Y + 30 + dropFrame.AbsoluteSize.Y > main.AbsolutePosition.Y + main.AbsoluteSize.Y then
+                dropFrame.Position = UDim2.new(1, -170, 0, -dropFrame.AbsoluteSize.Y)
+            else
+                dropFrame.Position = UDim2.new(1, -170, 0, 30)
+            end
+        end
+    end)
 end
 
 local tabOverview = createTab("Обзор")
