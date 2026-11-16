@@ -1,5 +1,5 @@
 --[[
-    BAZZ · Pumpkin Patch Tycoon — ZaLupa Style UI (Final Compact Version)
+    BAZZ · Pumpkin Patch Tycoon — Adaptive Mobile UI
 --]]
 
 local Players = game:GetService("Players")
@@ -25,43 +25,20 @@ local HatchRemote  = Network:WaitForChild("CustomEggs_Hatch")
 local VERB_BUY = MT.VERB_BUY or "FZ_Reserve"
 
 local cfg = {
-    breakables    = true,
-    pumpkinsOnly  = false,
-    autoBuy       = true,
-    autoHatch     = true,
-    autoMerchant  = true,
-    autoProg      = false,
-    autoUpgrades  = true,
-    antiAfk       = true,
-    autoMail      = true,
-    fastPumpkins  = true,
-    autoEnter     = true,
-    noAnim        = true,
-    zoneMode      = "best",
-    eggChoice     = "auto",
-    clickRadius   = 150,
-    clickBurst    = 3,
-    hitsPerSecond = 300,
-    maxEggs       = 256,
-    tpDist        = 26,
-    tpCooldown    = 2,
-    hatchDist     = 40,
-    ultraOpti     = false,
+    breakables    = true, pumpkinsOnly  = false, autoBuy       = true, autoHatch     = true,
+    autoMerchant  = true, autoProg      = false, autoUpgrades  = true, antiAfk       = true,
+    autoMail      = true, fastPumpkins  = true,  autoEnter     = true, noAnim        = true,
+    zoneMode      = "best", eggChoice     = "auto", clickRadius   = 150, clickBurst    = 3,
+    hitsPerSecond = 300,  maxEggs       = 256,   tpDist        = 26,  tpCooldown    = 2,
+    hatchDist     = 40,   ultraOpti     = false,
 }
 G.Bazz = cfg
 
 local function normalizeProgression()
     if not cfg.autoProg then return end
-    cfg.breakables = true
-    cfg.pumpkinsOnly = false
-    cfg.zoneMode = "best"
-    cfg.eggChoice = "auto"
-    cfg.autoHatch = true
-    cfg.autoBuy = true
-    cfg.autoMerchant = true
-    cfg.autoEnter = true
-    cfg.fastPumpkins = true
-    cfg.autoUpgrades = true
+    cfg.breakables = true cfg.pumpkinsOnly = false cfg.zoneMode = "best" cfg.eggChoice = "auto"
+    cfg.autoHatch = true cfg.autoBuy = true cfg.autoMerchant = true cfg.autoEnter = true
+    cfg.fastPumpkins = true cfg.autoUpgrades = true
 end
 
 local purchaseMemory = G.BazzPurchases or { owned = {}, plot = nil }
@@ -565,18 +542,19 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- GUI (Final)
+-- GUI (Адаптивный под телефон)
 -- ============================================================
 local parent = LP:WaitForChild("PlayerGui")
 local old = parent:FindFirstChild("BazzHubUI")
 if old then old:Destroy() end
 
 local UserInputService = game:GetService("UserInputService")
+local camera = workspace.CurrentCamera
+
 local COL_BG = Color3.fromRGB(25, 25, 28)
 local COL_SIDE = Color3.fromRGB(18, 18, 20)
 local COL_ACCENT = Color3.fromRGB(255, 138, 42)
 local COL_TEXT = Color3.fromRGB(240, 240, 240)
-local COL_MUTED = Color3.fromRGB(150, 150, 160)
 
 local sgui = Instance.new("ScreenGui")
 sgui.Name = "BazzHubUI" sgui.ResetOnSpawn = false sgui.IgnoreGuiInset = true sgui.DisplayOrder = 1000000 sgui.Parent = parent
@@ -591,6 +569,20 @@ local main = Instance.new("Frame")
 main.Size = UDim2.fromOffset(500, 320) main.Position = UDim2.fromScale(0.5, 0.5) main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.BackgroundColor3 = COL_BG main.BorderSizePixel = 0 main.Visible = false main.Parent = sgui
 local mc = Instance.new("UICorner") mc.CornerRadius = UDim.new(0, 8) mc.Parent = main
+
+-- АДАПТИВНЫЙ РАЗМЕР
+local uiScale = Instance.new("UIScale")
+uiScale.Parent = main
+
+local function updateUIScale()
+    if not camera then return end
+    local viewport = camera.ViewportSize
+    local scaleX = (viewport.X - 24) / 500
+    local scaleY = (viewport.Y - 24) / 320
+    uiScale.Scale = math.clamp(math.min(scaleX, scaleY, 1), 0.4, 1)
+end
+updateUIScale()
+camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateUIScale)
 
 local topBar = Instance.new("Frame")
 topBar.Size = UDim2.new(1, 0, 0, 35) topBar.BackgroundColor3 = COL_SIDE topBar.Parent = main
@@ -627,7 +619,7 @@ local function createTab(name)
     btn.TextColor3 = COL_TEXT btn.Font = Enum.Font.Gotham btn.TextSize = 13 btn.TextXAlignment = Enum.TextXAlignment.Left btn.Parent = tabContainer
     btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(30,30,35) end)
     btn.MouseLeave:Connect(function() btn.BackgroundColor3 = COL_SIDE end)
-    
+
     local frame = Instance.new("ScrollingFrame")
     frame.Size = UDim2.fromScale(1, 1) frame.BackgroundTransparency = 1 frame.BorderSizePixel = 0
     frame.ScrollBarThickness = 2 frame.ScrollBarImageColor3 = COL_ACCENT
@@ -676,7 +668,7 @@ local function createToggle(parent, order, label, key, callback)
     end)
 end
 
-local function createDropdown(parent, order, label, items, key, callback)
+local function createSelector(parent, order, label, items, key, callback)
     local p = createPanel(parent, order, 40)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(0.5, 0, 1, 0) lbl.Position = UDim2.fromOffset(12, 0) lbl.BackgroundTransparency = 1
@@ -684,41 +676,19 @@ local function createDropdown(parent, order, label, items, key, callback)
     lbl.TextXAlignment = Enum.TextXAlignment.Left lbl.Parent = p
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.fromOffset(160, 26) btn.Position = UDim2.new(1, -170, 0.5, -13)
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) btn.Text = "  " .. tostring(cfg[key]) .. " ▼"
-    btn.TextColor3 = COL_TEXT btn.Font = Enum.Font.Gotham btn.TextSize = 12 btn.TextXAlignment = Enum.TextXAlignment.Left btn.Parent = p
+    btn.Size = UDim2.fromOffset(140, 26) btn.Position = UDim2.new(1, -150, 0.5, -13)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) btn.Text = tostring(cfg[key])
+    btn.TextColor3 = COL_TEXT btn.Font = Enum.Font.Gotham btn.TextSize = 12 btn.Parent = p
     local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(0, 4) bc.Parent = btn
 
-    local dropFrame = Instance.new("ScrollingFrame")
-    dropFrame.Size = UDim2.fromOffset(160, math.min(#items * 25, 120)) 
-    dropFrame.Position = UDim2.new(1, -170, 0, 30)
-    dropFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-    dropFrame.BorderSizePixel = 0 dropFrame.Visible = false dropFrame.ZIndex = 10 dropFrame.Parent = p
-    local dfc = Instance.new("UICorner") dfc.CornerRadius = UDim.new(0, 4) dfc.Parent = dropFrame
-    local dfl = Instance.new("UIListLayout") dfl.Parent = dropFrame
-
-    for i, item in ipairs(items) do
-        local opt = Instance.new("TextButton")
-        opt.Size = UDim2.new(1, 0, 0, 25) opt.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-        opt.Text = "  " .. tostring(item) opt.TextColor3 = COL_TEXT opt.Font = Enum.Font.Gotham opt.TextSize = 12 opt.TextXAlignment = Enum.TextXAlignment.Left opt.LayoutOrder = i opt.Parent = dropFrame
-        opt.MouseEnter:Connect(function() opt.BackgroundColor3 = COL_ACCENT opt.TextColor3 = Color3.new(0,0,0) end)
-        opt.MouseLeave:Connect(function() opt.BackgroundColor3 = Color3.fromRGB(40, 40, 45) opt.TextColor3 = COL_TEXT end)
-        opt.MouseButton1Click:Connect(function()
-            cfg[key] = item btn.Text = "  " .. tostring(item) .. " ▼" dropFrame.Visible = false
-            if callback then callback(item) end saveCfg()
-        end)
-    end
     btn.MouseButton1Click:Connect(function()
-        dropFrame.Visible = not dropFrame.Visible
-        if dropFrame.Visible then
-            dropFrame.ZIndex = 100
-            -- Если список выходит за нижний край окна, открываем его вверх
-            if p.AbsolutePosition.Y + 30 + dropFrame.AbsoluteSize.Y > main.AbsolutePosition.Y + main.AbsoluteSize.Y then
-                dropFrame.Position = UDim2.new(1, -170, 0, -dropFrame.AbsoluteSize.Y)
-            else
-                dropFrame.Position = UDim2.new(1, -170, 0, 30)
-            end
-        end
+        local idx = table.find(items, cfg[key]) or 0
+        idx = idx + 1
+        if idx > #items then idx = 1 end
+        cfg[key] = items[idx]
+        btn.Text = tostring(items[idx])
+        if callback then callback(items[idx]) end
+        saveCfg()
     end)
 end
 
@@ -731,11 +701,11 @@ createToggle(tabFarm, 1, "Автофарм зоны", "breakables")
 createToggle(tabFarm, 2, "Только тыквы", "pumpkinsOnly")
 createToggle(tabFarm, 3, "Автопрогресс", "autoProg", function(v) if v then normalizeProgression() end end)
 createToggle(tabFarm, 4, "Быстрые тыквы", "fastPumpkins")
-createDropdown(tabFarm, 5, "Выбор зоны", {"best", "1", "2", "3", "4", "5"}, "zoneMode")
+createSelector(tabFarm, 5, "Выбор зоны", {"best", "1", "2", "3", "4", "5"}, "zoneMode")
 
 createToggle(tabEgg, 1, "Автооткрытие яиц", "autoHatch")
 createToggle(tabEgg, 2, "Без анимаций", "noAnim", function(v) if v then killAnimations() end end)
-createDropdown(tabEgg, 3, "Выбор яйца", {"auto", "Cocoa Cabin Egg", "Apple Orchard Egg", "Hayride Hill Egg", "Cider Mill Egg", "Golden Grove Egg"}, "eggChoice")
+createSelector(tabEgg, 3, "Выбор яйца", {"auto", "Cocoa Cabin Egg", "Apple Orchard Egg", "Hayride Hill Egg", "Cider Mill Egg", "Golden Grove Egg"}, "eggChoice")
 
 createToggle(tabEvent, 1, "Ультра-оптимизация (Без лагов)", "ultraOpti", function(v) applyUltra() end)
 createToggle(tabEvent, 2, "Апгрейды тайкуна", "autoBuy")
@@ -746,21 +716,34 @@ createToggle(tabEvent, 5, "Автопочта", "autoMail")
 toggleBtn.MouseButton1Click:Connect(function() main.Visible = not main.Visible end)
 closeBtn.MouseButton1Click:Connect(function() main.Visible = false end)
 
+-- ПЕРЕТАСКИВАНИЕ В ГРАНИЦАХ ЭКРАНА
 local dragging, dragStart, dragOrigin
 topBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true dragStart = input.Position dragOrigin = main.Position end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        dragOrigin = main.AbsolutePosition
+    end
 end)
 UserInputService.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local d = input.Position - dragStart
-        main.Position = UDim2.new(dragOrigin.X.Scale, dragOrigin.X.Offset + d.X, dragOrigin.Y.Scale, dragOrigin.Y.Offset + d.Y)
+        local delta = input.Position - dragStart
+        local viewport = camera.ViewportSize
+        local size = main.AbsoluteSize
+        
+        local x = math.clamp(dragOrigin.X + delta.X, 0, viewport.X - size.X)
+        local y = math.clamp(dragOrigin.Y + delta.Y, 0, viewport.Y - size.Y)
+        
+        main.Position = UDim2.fromOffset(x + size.X / 2, y + size.Y / 2)
     end
 end)
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
 end)
 
 switchTab("Обзор")
 applyUltra()
 if cfg.noAnim then killAnimations() end
-print("[Bazz Hub] Загружено. Компактный интерфейс.")
+print("[Bazz Hub] Загружено. Адаптивный интерфейс для телефона.")
