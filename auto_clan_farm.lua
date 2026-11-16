@@ -1,5 +1,5 @@
 --[[
-    BAZZ · Pumpkin Patch Tycoon — ZaLupa Style UI (Без белого экрана)
+    BAZZ · Pumpkin Patch Tycoon — ZaLupa Style UI (Компактная версия)
 --]]
 
 local Players = game:GetService("Players")
@@ -46,7 +46,7 @@ local cfg = {
     tpDist        = 26,
     tpCooldown    = 2,
     hatchDist     = 40,
-    ultraOpti     = false, -- ВЫКЛЮЧЕНО, чтобы не было белого экрана
+    ultraOpti     = false,
 }
 G.Bazz = cfg
 
@@ -76,7 +76,6 @@ if G.__bazz_cleanup then pcall(G.__bazz_cleanup) end
 G.__bazzgen = (G.__bazzgen or 0) + 1
 local GEN = G.__bazzgen
 
--- Сохранение
 local HttpService = game:GetService("HttpService")
 local SAVE_FILE = "bazz_config.json"
 local SAVE_KEYS = { "breakables", "pumpkinsOnly", "autoBuy", "autoHatch", "autoMerchant", "autoEnter", "noAnim", "zoneMode", "eggChoice", "maxEggs", "clickRadius", "clickBurst", "fastPumpkins", "autoProg", "autoUpgrades", "ultraOpti", "antiAfk", "autoMail" }
@@ -105,9 +104,7 @@ end
 loadCfg()
 normalizeProgression()
 
--- ============================================================
--- ЛОГИКА
--- ============================================================
+-- ЛОГИКА (без изменений)
 local function char() local c = LP.Character return c and c:FindFirstChild("HumanoidRootPart") end
 local function distTo(pos) local hrp = char() if not hrp or not pos then return math.huge end return (hrp.Position - pos).Magnitude end
 local lastTp, moveKey, moveTarget = 0, nil, nil
@@ -574,7 +571,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- GUI (ZaLupa Style)
+-- GUI (Компактная версия)
 -- ============================================================
 local parent = LP:WaitForChild("PlayerGui")
 local old = parent:FindFirstChild("BazzHubUI")
@@ -596,34 +593,35 @@ toggleBtn.BackgroundColor3 = COL_ACCENT toggleBtn.Text = "B" toggleBtn.TextColor
 toggleBtn.Font = Enum.Font.GothamBlack toggleBtn.TextSize = 24 toggleBtn.Parent = sgui
 local tc = Instance.new("UICorner") tc.CornerRadius = UDim.new(1, 0) tc.Parent = toggleBtn
 
+-- Уменьшенный размер окна
 local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(600, 400) main.Position = UDim2.fromScale(0.5, 0.5) main.AnchorPoint = Vector2.new(0.5, 0.5)
+main.Size = UDim2.fromOffset(520, 350) main.Position = UDim2.fromScale(0.5, 0.5) main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.BackgroundColor3 = COL_BG main.BorderSizePixel = 0 main.Visible = false main.Parent = sgui
 local mc = Instance.new("UICorner") mc.CornerRadius = UDim.new(0, 8) mc.Parent = main
 
 local topBar = Instance.new("Frame")
-topBar.Size = UDim2.new(1, 0, 0, 40) topBar.BackgroundColor3 = COL_SIDE topBar.Parent = main
+topBar.Size = UDim2.new(1, 0, 0, 35) topBar.BackgroundColor3 = COL_SIDE topBar.Parent = main
 local tc2 = Instance.new("UICorner") tc2.CornerRadius = UDim.new(0, 8) tc2.Parent = topBar
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -100, 1, 0) title.Position = UDim2.fromOffset(15, 0) title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold title.Text = "Bazz Hub | PS99" title.TextColor3 = COL_ACCENT title.TextSize = 16
+title.Font = Enum.Font.GothamBold title.Text = "Bazz Hub | PS99" title.TextColor3 = COL_ACCENT title.TextSize = 15
 title.TextXAlignment = Enum.TextXAlignment.Left title.Parent = topBar
 
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.fromOffset(30, 30) closeBtn.Position = UDim2.new(1, -40, 0, 5) closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-closeBtn.Text = "X" closeBtn.TextColor3 = Color3.new(1, 1, 1) closeBtn.Font = Enum.Font.GothamBold closeBtn.TextSize = 14 closeBtn.Parent = topBar
+closeBtn.Size = UDim2.fromOffset(25, 25) closeBtn.Position = UDim2.new(1, -35, 0, 5) closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "X" closeBtn.TextColor3 = Color3.new(1, 1, 1) closeBtn.Font = Enum.Font.GothamBold closeBtn.TextSize = 12 closeBtn.Parent = topBar
 local cbc = Instance.new("UICorner") cbc.CornerRadius = UDim.new(1, 0) cbc.Parent = closeBtn
 
 local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, 150, 1, -40) sidebar.Position = UDim2.fromOffset(0, 40) sidebar.BackgroundColor3 = COL_SIDE sidebar.Parent = main
+sidebar.Size = UDim2.new(0, 130, 1, -35) sidebar.Position = UDim2.fromOffset(0, 35) sidebar.BackgroundColor3 = COL_SIDE sidebar.Parent = main
 
 local tabContainer = Instance.new("Frame")
 tabContainer.Size = UDim2.new(1, 0, 1, 0) tabContainer.BackgroundTransparency = 1 tabContainer.Parent = sidebar
 local tl = Instance.new("UIListLayout") tl.Padding = UDim.new(0, 2) tl.HorizontalAlignment = Enum.HorizontalAlignment.Center tl.Parent = tabContainer
 
 local content = Instance.new("Frame")
-content.Size = UDim2.new(1, -150, 1, -40) content.Position = UDim2.fromOffset(150, 40) content.BackgroundTransparency = 1 content.Parent = main
+content.Size = UDim2.new(1, -130, 1, -35) content.Position = UDim2.fromOffset(130, 35) content.BackgroundTransparency = 1 content.Parent = main
 
 local tabs = {}
 local function switchTab(name)
@@ -632,8 +630,8 @@ end
 
 local function createTab(name)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 35) btn.BackgroundColor3 = COL_SIDE btn.Text = "  " .. name
-    btn.TextColor3 = COL_TEXT btn.Font = Enum.Font.Gotham btn.TextSize = 14 btn.TextXAlignment = Enum.TextXAlignment.Left btn.Parent = tabContainer
+    btn.Size = UDim2.new(1, 0, 0, 30) btn.BackgroundColor3 = COL_SIDE btn.Text = "  " .. name
+    btn.TextColor3 = COL_TEXT btn.Font = Enum.Font.Gotham btn.TextSize = 13 btn.TextXAlignment = Enum.TextXAlignment.Left btn.Parent = tabContainer
     btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(30,30,35) end)
     btn.MouseLeave:Connect(function() btn.BackgroundColor3 = COL_SIDE end)
     
@@ -643,8 +641,8 @@ local function createTab(name)
     frame.CanvasSize = UDim2.new(0, 0, 0, 0) frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     frame.Visible = false frame.Parent = content
 
-    local padding = Instance.new("UIPadding") padding.PaddingTop = UDim.new(0, 10) padding.PaddingLeft = UDim.new(0, 10) padding.PaddingRight = UDim.new(0, 10) padding.Parent = frame
-    local layout = Instance.new("UIListLayout") layout.Padding = UDim.new(0, 10) layout.SortOrder = Enum.SortOrder.LayoutOrder layout.Parent = frame
+    local padding = Instance.new("UIPadding") padding.PaddingTop = UDim.new(0, 8) padding.PaddingLeft = UDim.new(0, 8) padding.PaddingRight = UDim.new(0, 8) padding.Parent = frame
+    local layout = Instance.new("UIListLayout") layout.Padding = UDim.new(0, 6) layout.SortOrder = Enum.SortOrder.LayoutOrder layout.Parent = frame
 
     btn.MouseButton1Click:Connect(function() switchTab(name) end)
     tabs[name] = frame
@@ -653,62 +651,63 @@ end
 
 local function createPanel(parent, order, height)
     local p = Instance.new("Frame")
-    p.Size = UDim2.new(1, 0, 0, height or 50) p.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    p.Size = UDim2.new(1, 0, 0, height or 40) p.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
     p.BorderSizePixel = 0 p.LayoutOrder = order p.Parent = parent
     local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 6) c.Parent = p
     return p
 end
 
 local function createToggle(parent, order, label, key, callback)
-    local p = createPanel(parent, order, 50)
+    local p = createPanel(parent, order, 40)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, -60, 1, 0) lbl.Position = UDim2.fromOffset(12, 0) lbl.BackgroundTransparency = 1
-    lbl.Font = Enum.Font.Gotham lbl.Text = label lbl.TextColor3 = COL_TEXT lbl.TextSize = 14
+    lbl.Font = Enum.Font.Gotham lbl.Text = label lbl.TextColor3 = COL_TEXT lbl.TextSize = 13
     lbl.TextXAlignment = Enum.TextXAlignment.Left lbl.Parent = p
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.fromOffset(40, 20) btn.Position = UDim2.new(1, -50, 0.5, -10)
+    btn.Size = UDim2.fromOffset(36, 18) btn.Position = UDim2.new(1, -46, 0.5, -9)
     btn.BackgroundColor3 = cfg[key] and COL_ACCENT or Color3.fromRGB(60, 60, 70) btn.Text = "" btn.Parent = p
     local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(1, 0) bc.Parent = btn
 
     local circle = Instance.new("Frame")
-    circle.Size = UDim2.fromOffset(16, 16) circle.Position = cfg[key] and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2)
+    circle.Size = UDim2.fromOffset(14, 14) circle.Position = cfg[key] and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2)
     circle.BackgroundColor3 = Color3.new(1, 1, 1) circle.Parent = btn
     local cc = Instance.new("UICorner") cc.CornerRadius = UDim.new(1, 0) cc.Parent = circle
 
     btn.MouseButton1Click:Connect(function()
         cfg[key] = not cfg[key]
         btn.BackgroundColor3 = cfg[key] and COL_ACCENT or Color3.fromRGB(60, 60, 70)
-        circle.Position = cfg[key] and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2)
+        circle.Position = cfg[key] and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2)
         if callback then callback(cfg[key]) end
         saveCfg()
     end)
 end
 
 local function createDropdown(parent, order, label, items, key, callback)
-    local p = createPanel(parent, order, 50)
+    local p = createPanel(parent, order, 40)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(0.5, 0, 1, 0) lbl.Position = UDim2.fromOffset(12, 0) lbl.BackgroundTransparency = 1
-    lbl.Font = Enum.Font.Gotham lbl.Text = label lbl.TextColor3 = COL_TEXT lbl.TextSize = 14
+    lbl.Font = Enum.Font.Gotham lbl.Text = label lbl.TextColor3 = COL_TEXT lbl.TextSize = 13
     lbl.TextXAlignment = Enum.TextXAlignment.Left lbl.Parent = p
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.fromOffset(180, 30) btn.Position = UDim2.new(1, -190, 0.5, -15)
+    btn.Size = UDim2.fromOffset(160, 26) btn.Position = UDim2.new(1, -170, 0.5, -13)
     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60) btn.Text = "  " .. tostring(cfg[key]) .. " ▼"
-    btn.TextColor3 = COL_TEXT btn.Font = Enum.Font.Gotham btn.TextSize = 13 btn.TextXAlignment = Enum.TextXAlignment.Left btn.Parent = p
+    btn.TextColor3 = COL_TEXT btn.Font = Enum.Font.Gotham btn.TextSize = 12 btn.TextXAlignment = Enum.TextXAlignment.Left btn.Parent = p
     local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(0, 4) bc.Parent = btn
 
     local dropFrame = Instance.new("ScrollingFrame")
-    dropFrame.Size = UDim2.fromOffset(180, math.min(#items * 30, 150)) 
-    dropFrame.Position = UDim2.new(1, -190, 0, 35) dropFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    dropFrame.Size = UDim2.fromOffset(160, math.min(#items * 25, 120)) 
+    dropFrame.Position = UDim2.new(1, -170, 0, 30) -- Чуть ниже кнопки
+    dropFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
     dropFrame.BorderSizePixel = 0 dropFrame.Visible = false dropFrame.ZIndex = 10 dropFrame.Parent = p
     local dfc = Instance.new("UICorner") dfc.CornerRadius = UDim.new(0, 4) dfc.Parent = dropFrame
     local dfl = Instance.new("UIListLayout") dfl.Parent = dropFrame
 
     for i, item in ipairs(items) do
         local opt = Instance.new("TextButton")
-        opt.Size = UDim2.new(1, 0, 0, 30) opt.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-        opt.Text = "  " .. tostring(item) opt.TextColor3 = COL_TEXT opt.Font = Enum.Font.Gotham opt.TextSize = 13 opt.TextXAlignment = Enum.TextXAlignment.Left opt.LayoutOrder = i opt.Parent = dropFrame
+        opt.Size = UDim2.new(1, 0, 0, 25) opt.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+        opt.Text = "  " .. tostring(item) opt.TextColor3 = COL_TEXT opt.Font = Enum.Font.Gotham opt.TextSize = 12 opt.TextXAlignment = Enum.TextXAlignment.Left opt.LayoutOrder = i opt.Parent = dropFrame
         opt.MouseEnter:Connect(function() opt.BackgroundColor3 = COL_ACCENT opt.TextColor3 = Color3.new(0,0,0) end)
         opt.MouseLeave:Connect(function() opt.BackgroundColor3 = Color3.fromRGB(40, 40, 45) opt.TextColor3 = COL_TEXT end)
         opt.MouseButton1Click:Connect(function()
@@ -760,4 +759,4 @@ end)
 switchTab("Обзор")
 applyUltra()
 if cfg.noAnim then killAnimations() end
-print("[Bazz Hub] Загружено. Интерфейс исправлен.")
+print("[Bazz Hub] Загружено. Компактный интерфейс.")
