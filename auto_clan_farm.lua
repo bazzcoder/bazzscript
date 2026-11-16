@@ -1,6 +1,6 @@
 --[[
-    BAZZ · Pumpkin Patch Tycoon — Auto Suite (v65-ru)
-    Оптимизировано для мультибоксинга (5 окон) и скрываемого интерфейса.
+    BAZZ · Pumpkin Patch Tycoon — Hub Style UI
+    Классический интерфейс с вкладками и настройками.
 --]]
 
 local Players = game:GetService("Players")
@@ -925,7 +925,7 @@ local function killAnimations()
 end
 
 -- ============================================================
--- ЖЕСТКАЯ ОПТИМИЗАЦИЯ ДЛЯ МУЛЬТИБОКСИНГА (5 ОКОН)
+-- ЖЕСТКАЯ ОПТИМИЗАЦИЯ
 -- ============================================================
 local RunService = game:GetService("RunService")
 local purgeAt = 0
@@ -933,8 +933,6 @@ local purgeAt = 0
 local function applyAggressiveOpti()
     if not cfg.ultraOpti then return end
     pcall(function() RunService:Set3dRenderingEnabled(false) end)
-    
-    -- Отключаем тени и пост-обработку на уровне настроек
     pcall(function()
         settings().Rendering.QualityLevel = 1
         settings().Rendering.SavedQualityLevel = 1
@@ -943,8 +941,6 @@ local function applyAggressiveOpti()
         settings().Rendering.AnimationQuality = 1
         workspace.GlobalShadows = false
     end)
-
-    -- Очистка террейна (вода, трава)
     pcall(function()
         local terr = workspace:FindFirstChildOfClass("Terrain")
         if terr then
@@ -991,7 +987,7 @@ local function applyUltra()
 end
 
 -- ============================================================
--- планировщик покупок тайкуна
+-- планировщик покупок
 -- ============================================================
 local function ownsButton(id, purchased)
     return purchased[id] == true or ownedCache[id] == true
@@ -1162,639 +1158,362 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- HUD (Скрытый интерфейс)
+-- GUI В СТИЛЕ ZAPHUB (Вкладки и Настройки)
 -- ============================================================
 local parent = LP:WaitForChild("PlayerGui")
-local old = parent:FindFirstChild("BazzHUD")
+local old = parent:FindFirstChild("BazzHubUI")
 if old then old:Destroy() end
-local startedAt = os.clock()
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "BazzHUD"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.DisplayOrder = 1000000
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Parent = parent
-
--- Убираем черный фон на весь экран! Делаем просто прозрачный контейнер.
-local screen = Instance.new("Frame")
-screen.Size = UDim2.fromScale(1, 1)
-screen.BackgroundTransparency = 1 -- Полностью прозрачный
-screen.BorderSizePixel = 0
-screen.Parent = gui
-
-local box = Instance.new("Frame")
-box.AnchorPoint = Vector2.new(0.5, 0.5)
-box.Position = UDim2.fromScale(0.5, 0.5)
-box.Size = UDim2.fromOffset(470, 560)
-box.BackgroundColor3 = Color3.fromRGB(8, 8, 11)
-box.BorderSizePixel = 0
-box.Visible = false -- По умолчанию СКРЫТ
-box.Parent = screen
-local boxCorner = Instance.new("UICorner") boxCorner.CornerRadius = UDim.new(0, 10) boxCorner.Parent = box
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 28)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold
-title.Text = "BAZZ"
-title.TextColor3 = Color3.fromRGB(255, 138, 42)
-title.TextSize = 20
-title.Parent = box
-
-local clock = Instance.new("TextLabel")
-clock.Size = UDim2.new(1, 0, 0, 78)
-clock.Position = UDim2.fromOffset(0, 28)
-clock.BackgroundTransparency = 1
-clock.Font = Enum.Font.GothamBold
-clock.Text = "00:00:00"
-clock.TextColor3 = Color3.new(1, 1, 1)
-clock.TextSize = 60
-clock.Parent = box
-
-local uptime = Instance.new("TextLabel")
-uptime.Size = UDim2.new(1, 0, 0, 22)
-uptime.Position = UDim2.fromOffset(0, 110)
-uptime.BackgroundTransparency = 1
-uptime.Font = Enum.Font.Gotham
-uptime.Text = "в работе 0:00"
-uptime.TextColor3 = Color3.fromRGB(165, 165, 180)
-uptime.TextSize = 15
-uptime.Parent = box
-
-local statsFrame = Instance.new("Frame")
-statsFrame.Size = UDim2.new(1, 0, 0, 320)
-statsFrame.Position = UDim2.fromOffset(0, 142)
-statsFrame.BackgroundTransparency = 1
-statsFrame.Parent = box
-
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 2)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = statsFrame
-
-local rowValues = {}
-local ROWS = {
-    { "coins", "монеты" },
-    { "tokens", "токены" },
-    { "eggs", "яиц открыто" },
-    { "hits", "ударов" },
-    { "broken", "сломано" },
-    { "pumpkins", "тыкв активно" },
-    { "buys", "апгрейдов тайкуна" },
-    { "pumpkinUpg", "апгрейдов тыквы" },
-    { "merchant", "покупок у торговца" },
-    { "mail", "писем получено" },
-    { "zone", "зона" },
-    { "egg", "яйцо" },
-    { "mode", "статус" },
-}
-
-for i, spec in ipairs(ROWS) do
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, 0, 0, 25)
-    row.LayoutOrder = i
-    row.BackgroundTransparency = 1
-    row.Parent = statsFrame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.fromScale(0.42, 1)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.Gotham
-    label.Text = spec[2]
-    label.TextColor3 = Color3.fromRGB(160, 160, 180)
-    label.TextSize = 15
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = row
-
-    local value = Instance.new("TextLabel")
-    value.Size = UDim2.fromScale(0.58, 1)
-    value.Position = UDim2.fromScale(0.42, 0)
-    value.BackgroundTransparency = 1
-    value.Font = Enum.Font.GothamBold
-    value.Text = "-"
-    value.TextColor3 = Color3.fromRGB(240, 240, 240)
-    value.TextSize = 15
-    value.TextXAlignment = Enum.TextXAlignment.Right
-    value.Parent = row
-    rowValues[spec[1]] = value
-end
-
-local toggles = {
-    { "Автопрогресс", "autoProg" },
-    { "Автофарм зоны", "breakables" },
-    { "Автояйца", "autoHatch" },
-    { "Апгрейды тайкуна", "autoBuy" },
-    { "Апгрейды тыквы", "autoUpgrades" },
-    { "Ультра-оптимизация", "ultraOpti" },
-}
-local toggleButtons = {}
-
-local controls = Instance.new("Frame")
-controls.Size = UDim2.new(1, 0, 0, 116)
-controls.Position = UDim2.fromOffset(0, 470)
-controls.BackgroundTransparency = 1
-controls.Parent = box
-
-for i, spec in ipairs(toggles) do
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0.5, -3, 0, 22)
-    b.Position = UDim2.fromOffset(((i - 1) % 2) * (b.Size.X.Scale * 460 + 3), math.floor((i - 1) / 2) * 26)
-    b.BackgroundTransparency = 1
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 14
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.TextXAlignment = Enum.TextXAlignment.Left
-    b.Parent = controls
-    b.MouseButton1Click:Connect(function()
-        cfg[spec[2]] = not cfg[spec[2]]
-        if spec[2] == "autoProg" and cfg.autoProg then normalizeProgression() end
-        if spec[2] == "ultraOpti" then applyUltra() end
-        saveCfg()
-    end)
-    toggleButtons[#toggleButtons + 1] = { button = b, key = spec[2], label = spec[1] }
-end
-
-local hideBtn = Instance.new("TextButton")
-hideBtn.Size = UDim2.fromOffset(84, 30)
-hideBtn.Position = UDim2.new(1, -96, 0, 6)
-hideBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-hideBtn.Font = Enum.Font.GothamBold
-hideBtn.Text = "СКРЫТЬ"
-hideBtn.TextColor3 = Color3.fromRGB(255, 138, 42)
-hideBtn.TextSize = 13
-hideBtn.Parent = box
-
-hideBtn.MouseButton1Click:Connect(function()
-    box.Visible = false
-end)
-
--- ============================================================
--- Кнопка вызова меню (всегда на экране)
--- ============================================================
-local menuBtn = Instance.new("TextButton")
-menuBtn.Size = UDim2.fromOffset(100, 40)
-menuBtn.Position = UDim2.fromOffset(20, 20)
-menuBtn.BackgroundColor3 = Color3.fromRGB(255, 138, 42)
-menuBtn.Font = Enum.Font.GothamBold
-menuBtn.Text = "МЕНЮ"
-menuBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-menuBtn.TextSize = 18
-menuBtn.Parent = screen
-local mbCorner = Instance.new("UICorner") mbCorner.CornerRadius = UDim.new(0, 8) mbCorner.Parent = menuBtn
-
-menuBtn.MouseButton1Click:Connect(function()
-    box.Visible = not box.Visible
-end)
 
 local UserInputService = game:GetService("UserInputService")
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
-    if input.KeyCode == Enum.KeyCode.K then
-        box.Visible = not box.Visible
-    end
-end)
+local TweenService = game:GetService("TweenService")
 
-local function paintToggles()
-    for _, entry in ipairs(toggleButtons) do
-        local on = cfg[entry.key] == true
-        entry.button.Text = (on and "[x] " or "[ ] ") .. entry.label
-    end
-end
-paintToggles()
-applyUltra()
-
-local function clockText()
-    local elapsed = math.floor(os.clock() - startedAt)
-    return string.format("%02d:%02d:%02d",
-        math.floor(elapsed / 3600), math.floor(elapsed / 60) % 60, elapsed % 60)
-end
-
--- ============================================================
--- НАСТРОЙКИ
--- ============================================================
 local ACCENT = Color3.fromRGB(255, 138, 42)
-local CARD = Color3.fromRGB(24, 24, 32)
-local TEXT = Color3.fromRGB(235, 235, 240)
-local MUTED = Color3.fromRGB(145, 145, 160)
-
-local sOld = parent:FindFirstChild("BazzSettings")
-if sOld then sOld:Destroy() end
+local BG_COLOR = Color3.fromRGB(15, 15, 18)
+local SIDE_COLOR = Color3.fromRGB(22, 22, 28)
+local TEXT_COLOR = Color3.fromRGB(240, 240, 240)
+local MUTED_COLOR = Color3.fromRGB(150, 150, 160)
 
 local sgui = Instance.new("ScreenGui")
-sgui.Name = "BazzSettings"
+sgui.Name = "BazzHubUI"
 sgui.ResetOnSpawn = false
 sgui.IgnoreGuiInset = true
-sgui.DisplayOrder = 1000001
+sgui.DisplayOrder = 1000000
 sgui.Parent = parent
 
+-- Кнопка вызова (Маленький кружок)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.fromOffset(46, 46)
+toggleBtn.Position = UDim2.new(0, 20, 0.5, -23)
+toggleBtn.BackgroundColor3 = ACCENT
+toggleBtn.Text = "B"
+toggleBtn.TextColor3 = Color3.new(0, 0, 0)
+toggleBtn.Font = Enum.Font.GothamBlack
+toggleBtn.TextSize = 24
+toggleBtn.Parent = sgui
+local tc = Instance.new("UICorner") tc.CornerRadius = UDim.new(1, 0) tc.Parent = toggleBtn
+
+-- Главное окно
 local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(500, 740)
+main.Size = UDim2.fromOffset(600, 400)
 main.Position = UDim2.fromScale(0.5, 0.5)
 main.AnchorPoint = Vector2.new(0.5, 0.5)
-main.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+main.BackgroundColor3 = BG_COLOR
 main.BorderSizePixel = 0
-main.Visible = false -- По умолчанию СКРЫТ
+main.Visible = false
 main.Parent = sgui
-local mc = Instance.new("UICorner") mc.CornerRadius = UDim.new(0, 14) mc.Parent = main
-local ms = Instance.new("UIStroke") ms.Color = ACCENT ms.Thickness = 1 ms.Transparency = 0.55 ms.Parent = main
+local mc = Instance.new("UICorner") mc.CornerRadius = UDim.new(0, 10) mc.Parent = main
+local ms = Instance.new("UIStroke") ms.Color = Color3.fromRGB(40, 40, 50) ms.Thickness = 2 ms.Parent = main
 
-local header = Instance.new("Frame")
-header.Size = UDim2.new(1, 0, 0, 58)
-header.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-header.BackgroundTransparency = 0.15
-header.Parent = main
-mc = Instance.new("UICorner") mc.CornerRadius = UDim.new(0, 14) mc.Parent = header
+-- Заголовок
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.BackgroundColor3 = SIDE_COLOR
+topBar.Parent = main
+local tc2 = Instance.new("UICorner") tc2.CornerRadius = UDim.new(0, 10) tc2.Parent = topBar
 
-local hTitle = Instance.new("TextLabel")
-hTitle.Size = UDim2.new(1, -160, 1, 0)
-hTitle.Position = UDim2.fromOffset(16, 0)
-hTitle.BackgroundTransparency = 1
-hTitle.Font = Enum.Font.GothamBold
-hTitle.Text = "BAZZ"
-hTitle.TextColor3 = ACCENT
-hTitle.TextSize = 22
-hTitle.TextXAlignment = Enum.TextXAlignment.Left
-hTitle.Parent = header
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -100, 1, 0)
+title.Position = UDim2.fromOffset(15, 0)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.Text = "BAZZ HUB"
+title.TextColor3 = ACCENT
+title.TextSize = 18
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = topBar
 
-local hState = Instance.new("TextLabel")
-hState.Size = UDim2.fromOffset(100, 48)
-hState.Position = UDim2.new(1, -190, 0, 0)
-hState.BackgroundTransparency = 1
-hState.Font = Enum.Font.GothamBold
-hState.Text = ""
-hState.TextColor3 = MUTED
-hState.TextSize = 12
-hState.TextXAlignment = Enum.TextXAlignment.Right
-hState.Parent = header
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.fromOffset(30, 30)
+closeBtn.Position = UDim2.new(1, -40, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 14
+closeBtn.Parent = topBar
+local cbc = Instance.new("UICorner") cbc.CornerRadius = UDim.new(1, 0) cbc.Parent = closeBtn
 
-local function smallBtn(text, x, w, color)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.fromOffset(w, 40)
-    b.Position = UDim2.fromOffset(x, 9)
-    b.BackgroundColor3 = color or Color3.fromRGB(44, 44, 56)
-    b.Font = Enum.Font.GothamBold
-    b.Text = text
-    b.TextColor3 = TEXT
-    b.TextSize = 15
-    b.Parent = header
-    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 7) c.Parent = b
-    return b
+-- Сайдбар (Вкладки)
+local sidebar = Instance.new("Frame")
+sidebar.Size = UDim2.new(0, 150, 1, -40)
+sidebar.Position = UDim2.fromOffset(0, 40)
+sidebar.BackgroundColor3 = SIDE_COLOR
+sidebar.Parent = main
+
+local tabContainer = Instance.new("Frame")
+tabContainer.Size = UDim2.new(1, 0, 1, 0)
+tabContainer.BackgroundTransparency = 1
+tabContainer.Parent = sidebar
+local tl = Instance.new("UIListLayout")
+tl.Padding = UDim.new(0, 5)
+tl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+tl.Parent = tabContainer
+
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, -150, 1, -40)
+content.Position = UDim2.fromOffset(150, 40)
+content.BackgroundTransparency = 1
+content.Parent = main
+
+-- Функция переключения вкладок
+local tabs = {}
+local currentTab = nil
+
+local function switchTab(name)
+    for tName, tFrame in pairs(tabs) do
+        tFrame.Visible = (tName == name)
+    end
+    currentTab = name
 end
 
-local hideS = smallBtn("СКРЫТЬ", -58, 90, Color3.fromRGB(44, 44, 56))
-hideS.Position = UDim2.new(1, -102, 0, 9)
+local function createTab(name)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 35)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    btn.Text = name
+    btn.TextColor3 = TEXT_COLOR
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    btn.Parent = tabContainer
+    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 5) c.Parent = btn
+    
+    local frame = Instance.new("ScrollingFrame")
+    frame.Size = UDim2.fromScale(1, 1)
+    frame.BackgroundTransparency = 1
+    frame.BorderSizePixel = 0
+    frame.ScrollBarThickness = 3
+    frame.ScrollBarImageColor3 = ACCENT
+    frame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    frame.Visible = false
+    frame.Parent = content
+    
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 8)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = frame
+    
+    btn.MouseButton1Click:Connect(function() switchTab(name) end)
+    tabs[name] = frame
+    return frame, layout
+end
 
+-- Функция создания тумблера
+local function createToggle(parent, order, label, key, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -10, 0, 30)
+    row.BackgroundTransparency = 1
+    row.LayoutOrder = order
+    row.Parent = parent
+    
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -50, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.Gotham
+    lbl.Text = label
+    lbl.TextColor3 = TEXT_COLOR
+    lbl.TextSize = 14
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.fromOffset(40, 20)
+    btn.Position = UDim2.new(1, -40, 0.5, -10)
+    btn.BackgroundColor3 = cfg[key] and ACCENT or Color3.fromRGB(50, 50, 60)
+    btn.Text = ""
+    btn.Parent = row
+    local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(1, 0) bc.Parent = btn
+    
+    local circle = Instance.new("Frame")
+    circle.Size = UDim2.fromOffset(16, 16)
+    circle.Position = cfg[key] and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2)
+    circle.BackgroundColor3 = Color3.new(1, 1, 1)
+    circle.Parent = btn
+    local cc = Instance.new("UICorner") cc.CornerRadius = UDim.new(1, 0) cc.Parent = circle
+    
+    btn.MouseButton1Click:Connect(function()
+        cfg[key] = not cfg[key]
+        btn.BackgroundColor3 = cfg[key] and ACCENT or Color3.fromRGB(50, 50, 60)
+        circle.Position = cfg[key] and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2)
+        if callback then callback(cfg[key]) end
+        saveCfg()
+    end)
+end
+
+-- Функция создания ползунка (Слайдера)
+local function createSlider(parent, order, label, key, min, max, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -10, 0, 45)
+    row.BackgroundTransparency = 1
+    row.LayoutOrder = order
+    row.Parent = parent
+    
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 20)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.Gotham
+    lbl.Text = label .. ": " .. tostring(cfg[key])
+    lbl.TextColor3 = TEXT_COLOR
+    lbl.TextSize = 14
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+    
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(1, 0, 0, 6)
+    bar.Position = UDim2.fromOffset(0, 25)
+    bar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    bar.Parent = row
+    local brc = Instance.new("UICorner") brc.CornerRadius = UDim.new(1, 0) brc.Parent = bar
+    
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((cfg[key] - min) / (max - min), 0, 1, 0)
+    fill.BackgroundColor3 = ACCENT
+    fill.Parent = bar
+    local fc = Instance.new("UICorner") fc.CornerRadius = UDim.new(1, 0) fc.Parent = fill
+    
+    local dragging = false
+    local function update(input)
+        local pos = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+        local val = math.floor(min + (max - min) * pos)
+        cfg[key] = val
+        fill.Size = UDim2.new(pos, 0, 1, 0)
+        lbl.Text = label .. ": " .. tostring(val)
+        if callback then callback(val) end
+    end
+    
+    bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            update(input)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            update(input)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            saveCfg()
+        end
+    end)
+end
+
+-- Кнопка создания списка выбора (например, для зон)
+local function createDropdown(parent, order, label, items, currentKey, callback)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -10, 0, 55)
+    row.BackgroundTransparency = 1
+    row.LayoutOrder = order
+    row.Parent = parent
+    
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 20)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.Gotham
+    lbl.Text = label
+    lbl.TextColor3 = TEXT_COLOR
+    lbl.TextSize = 14
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = row
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 28)
+    btn.Position = UDim2.fromOffset(0, 22)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    btn.Text = tostring(cfg[currentKey])
+    btn.TextColor3 = TEXT_COLOR
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 13
+    btn.Parent = row
+    local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(0, 5) bc.Parent = btn
+    
+    btn.MouseButton1Click:Connect(function()
+        -- Простая логика перебора списка при клике (для экономии места)
+        local idx = table.find(items, cfg[currentKey]) or 0
+        idx = idx + 1
+        if idx > #items then idx = 1 end
+        cfg[currentKey] = items[idx]
+        btn.Text = tostring(items[idx])
+        if callback then callback(items[idx]) end
+        saveCfg()
+    end)
+end
+
+-- === НАПОЛНЕНИЕ ВКЛАДОК ===
+local farmTab, farmLayout = createTab("Фарм")
+local eggTab, eggLayout = createTab("Яйца")
+local upgTab, upgLayout = createTab("Апгрейды")
+local setTab, setLayout = createTab("Оптимизация")
+
+-- Фарм
+createToggle(farmTab, 1, "Автофарм зоны", "breakables")
+createToggle(farmTab, 2, "Только тыквы", "pumpkinsOnly")
+createToggle(farmTab, 3, "Автопрогресс", "autoProg", function(v) if v then normalizeProgression() end end)
+createToggle(farmTab, 4, "Быстрые тыквы", "fastPumpkins")
+createSlider(farmTab, 5, "Радиус атаки", "clickRadius", 50, 400)
+createSlider(farmTab, 6, "Сила клика", "clickBurst", 1, 10)
+createDropdown(farmTab, 7, "Выбор зоны", {"best", "1", "2", "3", "4", "5"}, "zoneMode")
+
+-- Яйца
+createToggle(eggTab, 1, "Автооткрытие яиц", "autoHatch")
+createToggle(eggTab, 2, "Без анимаций", "noAnim", function(v) if v then killAnimations() end end)
+createDropdown(eggTab, 3, "Выбор яйца", {"auto", "Cocoa Cabin Egg", "Apple Orchard Egg", "Hayride Hill Egg", "Cider Mill Egg", "Golden Grove Egg"}, "eggChoice")
+
+-- Апгрейды
+createToggle(upgTab, 1, "Авто-апгрейды тайкуна", "autoBuy")
+createToggle(upgTab, 2, "Апгрейды тыквы (CW)", "autoUpgrades")
+createToggle(upgTab, 3, "Покупка у торговца", "autoMerchant")
+createToggle(upgTab, 4, "Автовход в тайкун", "autoEnter")
+createToggle(upgTab, 5, "Автопочта", "autoMail")
+createToggle(upgTab, 6, "Анти-АФК", "antiAfk")
+
+-- Оптимизация
+createToggle(setTab, 1, "Ультра-оптимизация (3D off)", "ultraOpti", function(v) applyUltra() end)
+local infoLbl = Instance.new("TextLabel")
+infoLbl.Size = UDim2.new(1, -10, 0, 60)
+infoLbl.BackgroundTransparency = 1
+infoLbl.Font = Enum.Font.Gotham
+infoLbl.Text = "Отключает тени, текстуры и эффекты.\nИспользуй для мультибоксинга (5+ окон)."
+infoLbl.TextColor3 = MUTED_COLOR
+infoLbl.TextSize = 13
+infoLbl.TextXAlignment = Enum.TextXAlignment.Left
+infoLbl.TextYAlignment = Enum.TextYAlignment.Top
+infoLbl.TextWrapped = true
+infoLbl.LayoutOrder = 2
+infoLbl.Parent = setTab
+
+-- Логика кнопок открытия/закрытия
+toggleBtn.MouseButton1Click:Connect(function()
+    main.Visible = not main.Visible
+end)
+closeBtn.MouseButton1Click:Connect(function()
+    main.Visible = false
+end)
+
+-- Перетаскивание окна
 local dragging, dragStart, dragOrigin
-header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         dragOrigin = main.Position
     end
 end)
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch) then
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local d = input.Position - dragStart
-        main.Position = UDim2.new(
-            dragOrigin.X.Scale, dragOrigin.X.Offset + d.X,
-            dragOrigin.Y.Scale, dragOrigin.Y.Offset + d.Y)
+        main.Position = UDim2.new(dragOrigin.X.Scale, dragOrigin.X.Offset + d.X, dragOrigin.Y.Scale, dragOrigin.Y.Offset + d.Y)
     end
 end)
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
 end)
 
-local body = Instance.new("ScrollingFrame")
-body.Size = UDim2.new(1, -16, 1, -70)
-body.Position = UDim2.fromOffset(8, 64)
-body.BackgroundTransparency = 1
-body.BorderSizePixel = 0
-body.ScrollBarThickness = 3
-body.ScrollBarImageColor3 = ACCENT
-body.CanvasSize = UDim2.new(0, 0, 0, 0)
-body.AutomaticCanvasSize = Enum.AutomaticSize.Y
-body.Parent = main
-local bl = Instance.new("UIListLayout")
-bl.Padding = UDim.new(0, 6)
-bl.SortOrder = Enum.SortOrder.LayoutOrder
-bl.Parent = body
-
-local function card(order, height)
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, -4, 0, height)
-    f.LayoutOrder = order
-    f.BackgroundColor3 = CARD
-    f.BorderSizePixel = 0
-    f.Parent = body
-    local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = f
-    return f
-end
-
-local function caption(parentFrame, text)
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, -16, 0, 20)
-    l.Position = UDim2.fromOffset(12, 8)
-    l.BackgroundTransparency = 1
-    l.Font = Enum.Font.GothamBold
-    l.Text = text
-    l.TextColor3 = MUTED
-    l.TextSize = 14
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent = parentFrame
-    return l
-end
-
-local zoneCard = card(1, 112)
-caption(zoneCard, "ЗОНА ФАРМА")
-local zoneRow = Instance.new("Frame")
-zoneRow.Size = UDim2.new(1, -16, 0, 48)
-zoneRow.Position = UDim2.fromOffset(8, 38)
-zoneRow.BackgroundTransparency = 1
-zoneRow.Parent = zoneCard
-local zl = Instance.new("UIListLayout")
-zl.FillDirection = Enum.FillDirection.Horizontal
-zl.Padding = UDim.new(0, 4)
-zl.Parent = zoneRow
-local zoneButtons, zoneSig = {}, nil
-local paintSettingsToggles = function() end
-
-local function paintZones()
-    local active = cfg.autoProg and "best" or tostring(cfg.zoneMode)
-    for key, b in pairs(zoneButtons) do
-        local on = active == tostring(key)
-        b.BackgroundColor3 = on and ACCENT or Color3.fromRGB(42, 42, 54)
-        b.TextColor3 = on and Color3.fromRGB(24, 18, 10) or TEXT
-    end
-end
-
-local function rebuildZones()
-    local ids = {}
-    for idx in pairs(zoneTable()) do ids[#ids + 1] = idx end
-    table.sort(ids)
-    if #ids == 0 then for i = 1, 5 do ids[i] = i end end
-    local sig = table.concat(ids, ",")
-    if sig == zoneSig then return end
-    zoneSig = sig
-    for _, c in ipairs(zoneRow:GetChildren()) do
-        if c:IsA("TextButton") then c:Destroy() end
-    end
-    zoneButtons = {}
-    local function add(key, label, w)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.fromOffset(w, 44)
-        b.BackgroundColor3 = Color3.fromRGB(42, 42, 54)
-        b.Font = Enum.Font.GothamBold
-        b.Text = label
-        b.TextColor3 = TEXT
-        b.TextSize = 18
-        b.Parent = zoneRow
-        local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 7) c.Parent = b
-        b.MouseButton1Click:Connect(function()
-            cfg.zoneMode = (key == "best") and "best" or tonumber(key)
-            cfg.autoProg = false
-            paintZones()
-            paintSettingsToggles()
-            saveCfg()
-        end)
-        zoneButtons[key] = b
-    end
-    add("best", "МАКС", 74)
-    for _, idx in ipairs(ids) do add(tostring(idx), tostring(idx), 50) end
-    paintZones()
-end
-
-local eggCard = card(2, 160)
-caption(eggCard, "КАКОЕ ЯЙЦО ОТКРЫВАТЬ")
-local eggGrid = Instance.new("Frame")
-eggGrid.Size = UDim2.new(1, -16, 0, 0)
-eggGrid.Position = UDim2.fromOffset(10, 36)
-eggGrid.AutomaticSize = Enum.AutomaticSize.Y
-eggGrid.BackgroundTransparency = 1
-eggGrid.Parent = eggCard
-local eg = Instance.new("UIGridLayout")
-eg.CellSize = UDim2.new(0.5, -3, 0, 42)
-eg.CellPadding = UDim2.new(0, 5, 0, 6)
-eg.SortOrder = Enum.SortOrder.LayoutOrder
-eg.Parent = eggGrid
-local eggButtons, eggSig = {}, nil
-
-local function paintEggs()
-    local active = (cfg.autoProg and "auto") or cfg.eggChoice
-    for key, b in pairs(eggButtons) do
-        local on = active == key
-        b.BackgroundColor3 = on and ACCENT or Color3.fromRGB(42, 42, 54)
-        b.TextColor3 = on and Color3.fromRGB(24, 18, 10) or TEXT
-    end
-end
-
-local function rebuildEggs()
-    local ids = {}
-    for _, egg in ipairs(allEggs()) do
-        if not table.find(ids, egg.id) then ids[#ids + 1] = egg.id end
-    end
-    table.sort(ids)
-    local sig = table.concat(ids, "|")
-    if sig == eggSig then return end
-    eggSig = sig
-    for _, c in ipairs(eggGrid:GetChildren()) do
-        if c:IsA("TextButton") then c:Destroy() end
-    end
-    eggButtons = {}
-    local function add(key, label)
-        local b = Instance.new("TextButton")
-        b.LayoutOrder = #eggButtons + 1
-        b.BackgroundColor3 = Color3.fromRGB(42, 42, 54)
-        b.Font = Enum.Font.GothamBold
-        b.Text = label
-        b.TextColor3 = TEXT
-        b.TextSize = 16
-        b.TextTruncate = Enum.TextTruncate.AtEnd
-        b.Parent = eggGrid
-        local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 6) c.Parent = b
-        b.MouseButton1Click:Connect(function()
-            cfg.eggChoice = key
-            cfg.autoProg = false
-            paintEggs()
-            paintSettingsToggles()
-            saveCfg()
-        end)
-        eggButtons[key] = b
-    end
-    add("auto", "ЛУЧШЕЕ")
-    for _, id in ipairs(ids) do
-        if id ~= cfg.eggChoice then add(id, id:gsub("%s*Egg$", "")) end
-    end
-    if cfg.eggChoice ~= "auto" and not eggButtons[cfg.eggChoice] then
-        add(cfg.eggChoice, cfg.eggChoice:gsub("%s*Egg$", ""))
-    end
-    local rows = math.max(1, math.ceil((#ids + 1) / 2))
-    eggCard.Size = UDim2.new(1, -4, 0, 50 + rows * 48)
-    paintEggs()
-end
-
-local TOGGLE_DEFS = {
-    { "Автопрогресс", "autoProg" },
-    { "Автофарм зоны", "breakables" },
-    { "Только тыквы", "pumpkinsOnly" },
-    { "Автовход в тайкун", "autoEnter" },
-    { "Автопокупка апгрейдов", "autoBuy" },
-    { "Апгрейды тыквы (CW)", "autoUpgrades" },
-    { "Покупка у торговца", "autoMerchant" },
-    { "Автооткрытие яиц", "autoHatch" },
-    { "Быстрые тыквы", "fastPumpkins" },
-    { "Без анимаций яиц", "noAnim" },
-    { "Ультра-оптимизация (3D off)", "ultraOpti" },
-    { "Анти-АФК", "antiAfk" },
-    { "Автопочта", "autoMail" },
-}
-local toggleRows = {}
-
-paintSettingsToggles = function()
-    for _, row in ipairs(toggleRows) do
-        local on = cfg[row.key] == true
-        row.pill.BackgroundColor3 = on and ACCENT or Color3.fromRGB(52, 52, 64)
-        row.knob.Position = on and UDim2.fromOffset(29, 3) or UDim2.fromOffset(3, 3)
-        row.label.TextColor3 = on and TEXT or MUTED
-    end
-end
-
-local togCard = card(3, 30 + #TOGGLE_DEFS * 60)
-for i, def in ipairs(TOGGLE_DEFS) do
-    local rowF = Instance.new("TextButton")
-    rowF.Size = UDim2.new(1, -12, 0, 54)
-    rowF.Position = UDim2.fromOffset(6, 10 + (i - 1) * 60)
-    rowF.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    rowF.BackgroundTransparency = 0.35
-    rowF.Text = ""
-    rowF.AutoButtonColor = false
-    rowF.Parent = togCard
-    local rc = Instance.new("UICorner") rc.CornerRadius = UDim.new(0, 7) rc.Parent = rowF
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -90, 1, 0)
-    label.Position = UDim2.fromOffset(14, 0)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.GothamBold
-    label.Text = def[1]
-    label.TextColor3 = TEXT
-    label.TextSize = 17
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = rowF
-
-    local pill = Instance.new("Frame")
-    pill.Size = UDim2.fromOffset(58, 32)
-    pill.Position = UDim2.new(1, -72, 0.5, -16)
-    pill.BackgroundColor3 = Color3.fromRGB(52, 52, 64)
-    pill.Parent = rowF
-    local pc = Instance.new("UICorner") pc.CornerRadius = UDim.new(1, 0) pc.Parent = pill
-
-    local knob = Instance.new("Frame")
-    knob.Size = UDim2.fromOffset(26, 26)
-    knob.Position = UDim2.fromOffset(3, 3)
-    knob.BackgroundColor3 = Color3.fromRGB(240, 240, 245)
-    knob.Parent = pill
-    local kc = Instance.new("UICorner") kc.CornerRadius = UDim.new(1, 0) kc.Parent = knob
-
-    toggleRows[#toggleRows + 1] = { key = def[2], label = label, pill = pill, knob = knob }
-    rowF.MouseButton1Click:Connect(function()
-        cfg[def[2]] = not cfg[def[2]]
-        if def[2] == "autoProg" and cfg.autoProg then normalizeProgression() end
-        if def[2] == "noAnim" then killAnimations() end
-        if def[2] == "ultraOpti" then applyUltra() end
-        paintSettingsToggles()
-        paintZones()
-        paintEggs()
-        saveCfg()
-    end)
-end
-
-local statCard = card(4, 220)
-caption(statCard, "СЕССИЯ")
-local statBox = Instance.new("TextLabel")
-statBox.Size = UDim2.new(1, -20, 0, 190)
-statBox.Position = UDim2.fromOffset(12, 32)
-statBox.BackgroundTransparency = 1
-statBox.Font = Enum.Font.Code
-statBox.TextSize = 17
-statBox.TextColor3 = TEXT
-statBox.TextXAlignment = Enum.TextXAlignment.Left
-statBox.TextYAlignment = Enum.TextYAlignment.Top
-statBox.Text = ""
-statBox.Parent = statCard
-
-local function refreshSettings()
-    rebuildZones()
-    rebuildEggs()
-    paintZones()
-    paintEggs()
-    paintSettingsToggles()
-    local elapsed = math.floor(os.clock() - startedAt)
-    hState.Text = cfg.autoProg and "АВТОПРОГРЕСС" or ""
-    statBox.Text = string.format(
-        "монеты   %s\nтокены   %s\nоткрыто  %s\nударов   %s\nсломано  %s\nпочта    %s\nвремя    %d:%02d",
-        shortNum(coinCount()), shortNum(PumpUpg.Tokens and PumpUpg.Tokens() or 0),
-        shortNum(stats.hatches), shortNum(stats.hits), stats.broken, tostring(stats.mails or 0),
-        math.floor(elapsed / 60), elapsed % 60)
-end
-
-hideS.MouseButton1Click:Connect(function()
-    main.Visible = false
-end)
-
-local oldShow = G.showBazzPanel
-G.showBazzPanel = function()
-    if oldShow then pcall(oldShow) end
-    main.Visible = true
-end
-
-rebuildZones()
-rebuildEggs()
-paintSettingsToggles()
+switchTab("Фарм")
+applyUltra()
 if cfg.noAnim then killAnimations() end
-
-task.spawn(function()
-    local lastPurge = os.clock()
-    local lastAnimKill = 0
-    while G.__bazzgen == GEN do
-        if screen.Parent then
-            clock.Text = clockText()
-            local elapsed = math.floor(os.clock() - startedAt)
-            uptime.Text = string.format("в работе %d:%02d   |   Автопрогресс %s", math.floor(elapsed / 60), elapsed % 60,
-                cfg.autoProg and "ВКЛ" or "ВЫКЛ")
-
-            rowValues.coins.Text = shortNum(coinCount())
-            rowValues.tokens.Text = shortNum(PumpUpg.Tokens and PumpUpg.Tokens() or 0)
-            rowValues.eggs.Text = shortNum(stats.hatches)
-            rowValues.hits.Text = shortNum(stats.hits)
-            rowValues.broken.Text = tostring(stats.broken)
-            rowValues.pumpkins.Text = tostring(runtime.pumpkins)
-            rowValues.buys.Text = tostring(stats.buys)
-            rowValues.pumpkinUpg.Text = tostring(stats.pumpkinUpg or 0)
-            rowValues.merchant.Text = tostring(stats.merchant)
-            rowValues.mail.Text = tostring(stats.mails or 0)
-            rowValues.zone.Text = tostring(runtime.zone)
-            rowValues.egg.Text = tostring(runtime.egg)
-            rowValues.mode.Text = tostring(runtime.mode)
-
-            paintToggles()
-            pcall(refreshSettings)
-            if cfg.noAnim and os.clock() - lastAnimKill > 5 then
-                lastAnimKill = os.clock()
-                killAnimations()
-            end
-            if cfg.ultraOpti and os.clock() - lastPurge > 20 then
-                lastPurge = os.clock()
-                task.spawn(deepPurge)
-            end
-        end
-        task.wait(1)
-    end
-end)
-print("[Bazz v2] загружено | Оптимизация: " .. tostring(cfg.ultraOpti))
+print("[Bazz Hub] Загружено.")
