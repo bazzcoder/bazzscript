@@ -1,6 +1,6 @@
 --[[
     BAZZ · Pumpkin Patch Tycoon — Auto Suite (v65-ru)
-    Potassium · place 8737899170
+    Оптимизировано для мультибоксинга (5 окон) и скрываемого интерфейса.
 --]]
 
 local Players = game:GetService("Players")
@@ -737,7 +737,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- якорь: сначала тыквы, потом яйцо <-> зона
+-- якорь
 -- ============================================================
 local function firstPumpkin(list)
     local hrp = char()
@@ -811,7 +811,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- тайкун + торговец (identity 2)
+-- тайкун + торговец
 -- ============================================================
 local queuedId
 local workerReady = false
@@ -906,7 +906,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- анимации яиц
+-- анимации
 -- ============================================================
 local function killAnimations()
     local anim = Network:FindFirstChild("Eggs_PlayOpenAnimation")
@@ -925,22 +925,40 @@ local function killAnimations()
 end
 
 -- ============================================================
--- ультра-оптимизация
+-- ЖЕСТКАЯ ОПТИМИЗАЦИЯ ДЛЯ МУЛЬТИБОКСИНГА (5 ОКОН)
 -- ============================================================
 local RunService = game:GetService("RunService")
 local purgeAt = 0
-local KEEP_GUI = {
-    BazzHUD = true,
-    BazzSettings = true,
-    BazzMenuButton = true,
-}
-local KEEP_THINGS = {
-    Plots = true, Breakables = true, CustomEggs = true, Instances = true,
-    ZoneEggs = true, FarmEggs = true, RenderedEggs = true, InfinityEggs = true,
-}
+
+local function applyAggressiveOpti()
+    if not cfg.ultraOpti then return end
+    pcall(function() RunService:Set3dRenderingEnabled(false) end)
+    
+    -- Отключаем тени и пост-обработку на уровне настроек
+    pcall(function()
+        settings().Rendering.QualityLevel = 1
+        settings().Rendering.SavedQualityLevel = 1
+        settings().Rendering.MeshPartDetail = 1
+        settings().Rendering.TextureQuality = 1
+        settings().Rendering.AnimationQuality = 1
+        workspace.GlobalShadows = false
+    end)
+
+    -- Очистка террейна (вода, трава)
+    pcall(function()
+        local terr = workspace:FindFirstChildOfClass("Terrain")
+        if terr then
+            terr.WaterWaveSize = 0
+            terr.WaterWaveSpeed = 0
+            terr.WaterReflectance = 0
+            terr.WaterTransparency = 1
+            terr.Decoration = false
+        end
+    end)
+end
 
 local function deepPurge()
-    if os.clock() - purgeAt < 8 then return end
+    if os.clock() - purgeAt < 10 then return end
     purgeAt = os.clock()
     local ch = LP.Character
     local function strip(inst)
@@ -965,37 +983,11 @@ local function deepPurge()
         pcall(strip, descs[i])
         if i % 500 == 0 then task.wait() end
     end
-    pcall(function()
-        for _, d in ipairs(game:GetService("Lighting"):GetChildren()) do strip(d) end
-        for _, d in ipairs(game:GetService("SoundService"):GetDescendants()) do strip(d) end
-        settings().Rendering.QualityLevel = 1
-        local terr = workspace:FindFirstChildOfClass("Terrain")
-        if terr then
-            terr.WaterWaveSize = 0
-            terr.WaterWaveSpeed = 0
-            terr.WaterReflectance = 0
-            terr.WaterTransparency = 1
-        end
-    end)
-    pcall(function()
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= LP and plr.Character then
-                for _, d in ipairs(plr.Character:GetDescendants()) do
-                    pcall(function()
-                        if d:IsA("BasePart") then d.Transparency = 1 d.CastShadow = false
-                        elseif d:IsA("Decal") or d:IsA("Texture") then d.Transparency = 1
-                        elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then d.Enabled = false end
-                    end)
-                end
-            end
-        end
-    end)
 end
 
 local function applyUltra()
-    local on = cfg.ultraOpti == true
-    pcall(function() RunService:Set3dRenderingEnabled(not on) end)
-    if on then task.spawn(deepPurge) end
+    applyAggressiveOpti()
+    if cfg.ultraOpti then task.spawn(deepPurge) end
 end
 
 -- ============================================================
@@ -1170,13 +1162,11 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- HUD (чёрный экран)
+-- HUD (Скрытый интерфейс)
 -- ============================================================
 local parent = LP:WaitForChild("PlayerGui")
-local host = parent
 local old = parent:FindFirstChild("BazzHUD")
 if old then old:Destroy() end
-local oldBar = parent:FindFirstChild("BazzHUD") -- зарезервировано
 local startedAt = os.clock()
 
 local gui = Instance.new("ScreenGui")
@@ -1185,21 +1175,24 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.DisplayOrder = 1000000
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Parent = host
+gui.Parent = parent
 
+-- Убираем черный фон на весь экран! Делаем просто прозрачный контейнер.
 local screen = Instance.new("Frame")
 screen.Size = UDim2.fromScale(1, 1)
-screen.BackgroundColor3 = Color3.new(0, 0, 0)
+screen.BackgroundTransparency = 1 -- Полностью прозрачный
 screen.BorderSizePixel = 0
 screen.Parent = gui
 
 local box = Instance.new("Frame")
 box.AnchorPoint = Vector2.new(0.5, 0.5)
-box.Position = UDim2.fromScale(0.28, 0.5)
+box.Position = UDim2.fromScale(0.5, 0.5)
 box.Size = UDim2.fromOffset(470, 560)
 box.BackgroundColor3 = Color3.fromRGB(8, 8, 11)
 box.BorderSizePixel = 0
+box.Visible = false -- По умолчанию СКРЫТ
 box.Parent = screen
+local boxCorner = Instance.new("UICorner") boxCorner.CornerRadius = UDim.new(0, 10) boxCorner.Parent = box
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 28)
@@ -1331,44 +1324,36 @@ hideBtn.Font = Enum.Font.GothamBold
 hideBtn.Text = "СКРЫТЬ"
 hideBtn.TextColor3 = Color3.fromRGB(255, 138, 42)
 hideBtn.TextSize = 13
-hideBtn.Parent = screen
+hideBtn.Parent = box
 
 hideBtn.MouseButton1Click:Connect(function()
-    screen.Visible = false
+    box.Visible = false
+end)
+
+-- ============================================================
+-- Кнопка вызова меню (всегда на экране)
+-- ============================================================
+local menuBtn = Instance.new("TextButton")
+menuBtn.Size = UDim2.fromOffset(100, 40)
+menuBtn.Position = UDim2.fromOffset(20, 20)
+menuBtn.BackgroundColor3 = Color3.fromRGB(255, 138, 42)
+menuBtn.Font = Enum.Font.GothamBold
+menuBtn.Text = "МЕНЮ"
+menuBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+menuBtn.TextSize = 18
+menuBtn.Parent = screen
+local mbCorner = Instance.new("UICorner") mbCorner.CornerRadius = UDim.new(0, 8) mbCorner.Parent = menuBtn
+
+menuBtn.MouseButton1Click:Connect(function()
+    box.Visible = not box.Visible
 end)
 
 local UserInputService = game:GetService("UserInputService")
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if input.KeyCode == Enum.KeyCode.K then
-        screen.Visible = not screen.Visible
+        box.Visible = not box.Visible
     end
-end)
-G.showBazzPanel = function()
-    screen.Visible = true
-end
-
-pcall(function()
-    if not gethui then return end
-    local core = gethui()
-    if not core then return end
-    local oldMenu = core:FindFirstChild("BazzMenuButton")
-    if oldMenu then oldMenu:Destroy() end
-    local sg = Instance.new("ScreenGui")
-    sg.Name = "BazzMenuButton"
-    sg.ResetOnSpawn = false
-    sg.DisplayOrder = 1000000
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.fromOffset(150, 52)
-    b.Position = UDim2.fromOffset(10, 10)
-    b.BackgroundColor3 = Color3.fromRGB(255, 138, 42)
-    b.Text = "МЕНЮ"
-    b.TextColor3 = Color3.fromRGB(0, 0, 0)
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 22
-    b.MouseButton1Click:Connect(function() G.showBazzPanel() end)
-    b.Parent = sg
-    sg.Parent = core
 end)
 
 local function paintToggles()
@@ -1379,7 +1364,6 @@ local function paintToggles()
 end
 paintToggles()
 applyUltra()
-screen.Visible = true
 
 local function clockText()
     local elapsed = math.floor(os.clock() - startedAt)
@@ -1407,10 +1391,11 @@ sgui.Parent = parent
 
 local main = Instance.new("Frame")
 main.Size = UDim2.fromOffset(500, 740)
-main.Position = UDim2.fromScale(0.74, 0.5)
+main.Position = UDim2.fromScale(0.5, 0.5)
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
 main.BorderSizePixel = 0
+main.Visible = false -- По умолчанию СКРЫТ
 main.Parent = sgui
 local mc = Instance.new("UICorner") mc.CornerRadius = UDim.new(0, 14) mc.Parent = main
 local ms = Instance.new("UIStroke") ms.Color = ACCENT ms.Thickness = 1 ms.Transparency = 0.55 ms.Parent = main
@@ -1812,4 +1797,4 @@ task.spawn(function()
         task.wait(1)
     end
 end)
-print("[Bazz v1] загружено | плот=" .. tostring(detectPlot()) .. " worker=" .. tostring(workerReady))
+print("[Bazz v2] загружено | Оптимизация: " .. tostring(cfg.ultraOpti))
