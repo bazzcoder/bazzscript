@@ -1,5 +1,5 @@
 --[[
-    BAZZ · Pumpkin Patch Tycoon — ZaLupa Style UI (Fixed White Screen)
+    BAZZ · Pumpkin Patch Tycoon — ZaLupa Style UI (Без белого экрана)
 --]]
 
 local Players = game:GetService("Players")
@@ -46,7 +46,7 @@ local cfg = {
     tpDist        = 26,
     tpCooldown    = 2,
     hatchDist     = 40,
-    ultraOpti     = false, -- По умолчанию ВЫКЛ, чтобы не было белого экрана
+    ultraOpti     = false, -- ВЫКЛЮЧЕНО, чтобы не было белого экрана
 }
 G.Bazz = cfg
 
@@ -468,8 +468,6 @@ end
 
 local RunService = game:GetService("RunService")
 local purgeAt = 0
-
--- БЕЗОПАСНАЯ ОПТИМИЗАЦИЯ (БЕЗ БЕЛОГО ЭКРАНА)
 local function applyAggressiveOpti()
     if not cfg.ultraOpti then return end
     pcall(function()
@@ -485,7 +483,6 @@ local function applyAggressiveOpti()
         if terr then terr.WaterWaveSize = 0 terr.WaterWaveSpeed = 0 terr.WaterReflectance = 0 terr.WaterTransparency = 1 terr.Decoration = false end
     end)
 end
-
 local function deepPurge()
     if os.clock() - purgeAt < 10 then return end
     purgeAt = os.clock() local ch = LP.Character
@@ -727,7 +724,6 @@ local tabFarm = createTab("Авто Ферма")
 local tabEgg = createTab("Яйцо")
 local tabEvent = createTab("Ивент / Оптимизация")
 
--- Заполнение вкладок
 createToggle(tabFarm, 1, "Автофарм зоны", "breakables")
 createToggle(tabFarm, 2, "Только тыквы", "pumpkinsOnly")
 createToggle(tabFarm, 3, "Автопрогресс", "autoProg", function(v) if v then normalizeProgression() end end)
